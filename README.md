@@ -219,7 +219,7 @@ This port to layer shell is not yet in a stable state, so expect to encounter so
 What is currently missing:
 
   * [ ] Building with autotools, with or without Wayland support
-  * [ ] Window mode when running in Wayland mode. Though it can be emulated in dmenu mode on some compositors (ie: Sway IPC)
+  * [ ] Window mode when running in Wayland mode. Though it can be emulated in dmenu mode on some compositors (for Sway, see below)
   * [ ] `-normal-window` flag in Wayland mode
   * [ ] Selecting which monitor to run rofi on in Wayland mode, only shows up on the currently focused monitor
   * [ ] Advanced window location options such as x-offset and y-offset (probably not possible with layer shell)
@@ -230,6 +230,15 @@ What is currently missing:
 If you find something does not work and is not listed here, please open a PR.
 
 I do not intend to make releases from this fork at the moment, but will simply try to keep it regularly in sync with the develop branch upstream.
+
+## Sway window switching
+
+[A script is included](./Examples/sway_window_switch.sh) to provide window
+switching for Sway.  Use the standard syntax for Rofi custom modes.  For
+example, if you copied the file from the Examples directory to your private
+.config directory:
+
+     rofi -show combi -combi-modi "window:~/.config/rofi/sway_window_switch.sh,ssh" -modi combi
 
 # Configuration
 
