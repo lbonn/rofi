@@ -31,12 +31,9 @@
 #include <stdio.h>
 #include <helper.h>
 #include <string.h>
-#include <xcb/xcb_ewmh.h>
-#include "xcb-internal.h"
 #include "rofi.h"
 #include "settings.h"
 #include "display.h"
-#include "xcb.h"
 #include "theme.h"
 #include "css-colors.h"
 #include "widgets/widget-internal.h"

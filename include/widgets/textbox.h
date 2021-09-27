@@ -35,7 +35,6 @@
 #include <pango/pango-fontmap.h>
 #include <pango/pango.h>
 #include <pango/pangocairo.h>
-#include <xkbcommon/xkbcommon.h>
 
 /**
  * @defgroup Textbox Textbox

@@ -35,7 +35,6 @@
 #include "rofi.h"
 #include "settings.h"
 #include "view.h"
-#include "xcb.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>

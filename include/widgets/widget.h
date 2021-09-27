@@ -30,8 +30,6 @@
 #include "keyb.h"
 #include <cairo.h>
 #include <glib.h>
-#include <xcb/xcb.h>
-#include <xcb/xproto.h>
 /**
  * @defgroup widget widget
  *

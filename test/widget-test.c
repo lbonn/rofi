@@ -37,7 +37,6 @@
 #include "rofi.h"
 #include "display.h"
 #include "xrmoptions.h"
-#include "xcb.h"
 #include "rofi-icon-fetcher.h"
 unsigned int test =0;
 #define TASSERT( a )    {                                 \

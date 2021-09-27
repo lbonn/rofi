@@ -40,11 +40,8 @@
 #include <sysexits.h>
 #include <time.h>
 #include <unistd.h>
-#include <xcb/xcb.h>
 
 #include <glib-unix.h>
-
-#include <libgwater-xcb.h>
 
 #ifdef USE_NK_GIT_VERSION
 #include "nkutils-git-version.h"

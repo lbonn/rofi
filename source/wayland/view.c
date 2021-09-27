@@ -41,11 +41,7 @@
 
 #include <cairo.h>
 
-/** Indicated we understand the startup notification api is not yet stable.*/
-#define SN_API_NOT_YET_FROZEN
 #include "rofi.h"
-#include <libsn/sn.h>
-
 #include "settings.h"
 #include "timings.h"
 
@@ -54,7 +50,6 @@
 #include "helper-theme.h"
 #include "helper.h"
 #include "mode.h"
-#include "xrmoptions.h"
 
 #include "view-internal.h"
 #include "view.h"

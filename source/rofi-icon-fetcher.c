@@ -30,7 +30,6 @@
 
 #include "config.h"
 #include <stdlib.h>
-#include <xcb/xproto.h>
 
 #include "helper.h"
 #include "rofi-icon-fetcher.h"
@@ -39,7 +38,6 @@
 
 #include "keyb.h"
 #include "view.h"
-#include "xcb.h"
 
 #include "nkutils-enum.h"
 #include "nkutils-xdg-theme.h"

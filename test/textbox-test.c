@@ -33,12 +33,10 @@
 #include <glib.h>
 #include <history.h>
 #include <string.h>
-#include <xcb/xcb.h>
 #include <widgets/textbox.h>
 #include <rofi.h>
-#include <cairo-xlib.h>
+#include <cairo.h>
 #include "display.h"
-#include "xcb.h"
 #include "settings.h"
 #include "xrmoptions.h"
 

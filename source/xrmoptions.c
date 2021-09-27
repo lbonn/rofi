@@ -32,16 +32,12 @@
 #include "rofi-types.h"
 #include "rofi.h"
 #include "settings.h"
-#include "xcb-internal.h"
-#include "xcb.h"
 #include <ctype.h>
 #include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <xcb/xcb.h>
-#include <xcb/xkb.h>
 
 ThemeWidget *rofi_configuration = NULL;
 

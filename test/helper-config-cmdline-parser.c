@@ -31,10 +31,7 @@
 #include <stdio.h>
 #include <helper.h>
 #include <string.h>
-#include <xcb/xcb_ewmh.h>
 #include "display.h"
-#include "xcb.h"
-#include "xcb-internal.h"
 #include "rofi.h"
 #include "settings.h"
 #include "widgets/textbox.h"

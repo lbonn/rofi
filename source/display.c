@@ -1,6 +1,5 @@
 #include "keyb.h"
 #include <glib.h>
-#include <xcb/xkb.h>
 
 #include "display-internal.h"
 #include "display.h"

@@ -36,11 +36,9 @@
 #include <mode.h>
 #include <mode-private.h>
 #include <dialogs/help-keys.h>
-#include <xkbcommon/xkbcommon.h>
 #include "theme.h"
 #include "rofi.h"
 #include "display.h"
-#include "xcb.h"
 #include "widgets/textbox.h"
 #include <keyb.h>
 #include <helper.h>

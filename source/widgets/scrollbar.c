@@ -30,7 +30,6 @@
 #include "widgets/listview.h"
 #include "widgets/textbox.h"
 #include <glib.h>
-#include <xkbcommon/xkbcommon.h>
 
 #include "theme.h"
 

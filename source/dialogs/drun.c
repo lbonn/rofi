@@ -53,7 +53,6 @@
 #include "settings.h"
 #include "timings.h"
 #include "widgets/textbox.h"
-#include "xcb.h"
 
 #include "rofi-icon-fetcher.h"
 
