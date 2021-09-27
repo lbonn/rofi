@@ -40,12 +40,8 @@
 #include <unistd.h>
 
 #include <glib.h>
-#include <xcb/xcb.h>
 
-/** Indicated we understand the startup notification api is not yet stable.*/
-#define SN_API_NOT_YET_FROZEN
 #include "rofi.h"
-#include <libsn/sn.h>
 
 #include "settings.h"
 #include "timings.h"
@@ -55,7 +51,6 @@
 #include "helper-theme.h"
 #include "helper.h"
 #include "mode.h"
-#include "xcb-internal.h"
 #include "xrmoptions.h"
 
 #include "view-internal.h"
@@ -63,7 +58,10 @@
 
 #include "theme.h"
 
+#ifdef ENABLE_XCB
+#include "xcb-internal.h"
 #include "xcb.h"
+#endif
 
 static const view_proxy *proxy;
 
@@ -219,10 +217,12 @@ void rofi_view_set_selected_line(RofiViewState *state,
   }
   listview_set_selected(state->list_view, selected);
 
+#ifdef ENABLE_XCB
   if (config.backend == DISPLAY_XCB) {
     xcb_clear_area(xcb->connection, CacheState.main_window, 1, 0, 0, 1, 1);
     xcb_flush(xcb->connection);
   }
+#endif
 }
 
 void rofi_view_free(RofiViewState *state) {
@@ -622,30 +622,40 @@ static void rofi_view_trigger_global_action(KeyBindingAction action) {
   switch (action) {
   // Handling of paste
   case PASTE_PRIMARY:
+#ifdef ENABLE_XCB
     if (config.backend == DISPLAY_XCB) {
       xcb_convert_selection(xcb->connection, CacheState.main_window,
                             XCB_ATOM_PRIMARY, xcb->ewmh.UTF8_STRING,
                             xcb->ewmh.UTF8_STRING, XCB_CURRENT_TIME);
       xcb_flush(xcb->connection);
-    } else { // config.backend == DISPLAY_WAYLAND
+    }
+#endif
+#ifdef ENABLE_WAYLAND
+    if (config.backend == DISPLAY_WAYLAND) {
       char *d = display_get_clipboard_data(CLIPBOARD_PRIMARY);
       if (d != NULL) {
         rofi_view_handle_text(current_active_menu, d);
       }
     }
+#endif
     break;
   case PASTE_SECONDARY:
+#ifdef ENABLE_XCB
     if (config.backend == DISPLAY_XCB) {
       xcb_convert_selection(xcb->connection, CacheState.main_window,
                             netatoms[CLIPBOARD], xcb->ewmh.UTF8_STRING,
                             xcb->ewmh.UTF8_STRING, XCB_CURRENT_TIME);
       xcb_flush(xcb->connection);
-    } else { // config.backend == DISPLAY_WAYLAND
+    }
+#endif
+#ifdef ENABLE_WAYLAND
+    if (config.backend == DISPLAY_WAYLAND) {
       char *d = display_get_clipboard_data(CLIPBOARD_DEFAULT);
       if (d != NULL) {
         rofi_view_handle_text(current_active_menu, d);
       }
     }
+#endif
     break;
   case SCREENSHOT:
     rofi_capture_screenshot();
@@ -1282,14 +1292,18 @@ RofiViewState *rofi_view_create(Mode *sw, const char *input,
   state->quit = FALSE;
   rofi_view_refilter(state);
   rofi_view_update(state, TRUE);
+#ifdef ENABLE_XCB
   if (xcb->connection) {
     xcb_map_window(xcb->connection, CacheState.main_window);
   }
+#endif
   widget_queue_redraw(WIDGET(state->main_window));
   rofi_view_ping_mouse(state);
+#ifdef ENABLE_XCB
   if (xcb->connection) {
     xcb_flush(xcb->connection);
   }
+#endif
 
   rofi_view_set_user_timeout(NULL);
   /* When Override Redirect, the WM will not let us know we can take focus, so
@@ -1298,9 +1312,11 @@ RofiViewState *rofi_view_create(Mode *sw, const char *input,
     display_set_input_focus(CacheState.main_window);
   }
 
+#ifdef ENABLE_XCB
   if (xcb->sncontext != NULL) {
     sn_launchee_context_complete(xcb->sncontext);
   }
+#endif
   return state;
 }
 
@@ -1336,15 +1352,19 @@ int rofi_view_error_dialog(const char *msg, int markup) {
   // Move the window to the correct x,y position.
   rofi_view_window_update_size(state);
 
+#ifdef ENABLE_XCB
   // Display it.
   if (config.backend == DISPLAY_XCB) {
     xcb_map_window(xcb->connection, CacheState.main_window);
   }
+#endif
   widget_queue_redraw(WIDGET(state->main_window));
 
+#ifdef ENABLE_XCB
   if (xcb->sncontext != NULL) {
     sn_launchee_context_complete(xcb->sncontext);
   }
+#endif
 
   // Set it as current window.
   rofi_view_set_active(state);

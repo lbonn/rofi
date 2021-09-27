@@ -660,6 +660,7 @@ int config_sanity_check(void) {
     found_error = 1;
   }
 
+#ifdef ENABLE_XCB
   // Check size
   {
     workarea mon;
@@ -676,6 +677,7 @@ int config_sanity_check(void) {
       found_error = TRUE;
     }
   }
+#endif
 
   if (config.menu_font) {
     PangoFontDescription *pfd =

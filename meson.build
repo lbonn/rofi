@@ -54,31 +54,38 @@ deps = [
 ]
 
 
-libgwater = subproject('libgwater')
-# XCB stuff
-deps += [
-    libgwater.get_variable('libgwater_xcb'),
-    dependency('xcb'),
-    dependency('xcb-aux'),
-    dependency('xcb-xkb'),
-    dependency('xkbcommon-x11'),
-    dependency('xcb-ewmh'),
-    dependency('xcb-icccm'),
-    dependency('xcb-randr'),
-    dependency('xcb-cursor'),
-    dependency('xcb-xinerama'),
-    dependency('cairo-xcb'),
-    dependency('libstartup-notification-1.0'),
-]
+xcb_enabled = get_option('backends').contains('xcb')
+wayland_enabled = get_option('backends').contains('wayland')
 
-wayland_client = dependency('wayland-client', required: get_option('wayland'))
-wayland_protocols = dependency('wayland-protocols', version: '>= 1.17', required: get_option('wayland'))
-wayland_cursor = dependency('wayland-cursor', required: get_option('wayland'))
-if wayland_client.found()
-    deps += wayland_client
-    deps += wayland_protocols
-    deps += wayland_cursor
-    deps += libgwater.get_variable('libgwater_wayland')
+libgwater = subproject('libgwater')
+
+# XCB stuff
+if xcb_enabled
+    deps += [
+        libgwater.get_variable('libgwater_xcb'),
+        dependency('xcb'),
+        dependency('xcb-aux'),
+        dependency('xcb-xkb'),
+        dependency('xkbcommon-x11'),
+        dependency('xcb-ewmh'),
+        dependency('xcb-icccm'),
+        dependency('xcb-randr'),
+        dependency('xcb-cursor'),
+        dependency('xcb-xinerama'),
+        dependency('cairo-xcb'),
+        dependency('libstartup-notification-1.0'),
+    ]
+endif
+
+wayland_protocols = dependency('wayland-protocols', version: '>= 1.17', required: wayland_enabled)
+
+if wayland_enabled
+    deps += [
+        dependency('wayland-client'),
+        wayland_protocols,
+        dependency('wayland-cursor'),
+        libgwater.get_variable('libgwater_wayland'),
+    ]
 endif
 
 check = dependency('check', version: '>= 0.11.0', required: get_option('check'))
@@ -99,9 +106,11 @@ header_conf.set('GLIB_VERSION_MIN_REQUIRED', '(G_ENCODE_VERSION(@0@,@1@))'.forma
 header_conf.set('GLIB_VERSION_MAX_ALLOWED', '(G_ENCODE_VERSION(@0@,@1@))'.format(glib_min_major, glib_min_minor))
 
 header_conf.set('ENABLE_DRUN', get_option('drun'))
-header_conf.set('WINDOW_MODE', get_option('window'))
+# Window mode is not supported in the Wayland backend yet.
+header_conf.set('WINDOW_MODE', get_option('window') and xcb_enabled)
 
-header_conf.set('ENABLE_WAYLAND', wayland_client.found())
+header_conf.set('ENABLE_WAYLAND', wayland_enabled)
+header_conf.set('ENABLE_XCB', xcb_enabled)
 
 header_conf.set_quoted('MANPAGE_PATH', join_paths(get_option('prefix'), get_option('mandir')))
 header_conf.set_quoted('SYSCONFDIR', join_paths(get_option('prefix'), get_option('sysconfdir')))
@@ -176,15 +185,11 @@ rofi_sources = files(
         'source/dialogs/drun.c',
         'source/dialogs/dmenu.c',
         'source/dialogs/combi.c',
-        'source/dialogs/window.c',
         'source/dialogs/script.c',
         'source/dialogs/help-keys.c',
-        'source/xcb/display.c',
-        'source/xcb/view.c',
         'source/dialogs/filebrowser.c',
         'include/display.h',
         'include/xcb.h',
-        'include/xcb-internal.h',
         'include/rofi.h',
         'include/mode.h',
         'include/mode-private.h',
@@ -215,19 +220,28 @@ rofi_sources = files(
         'include/dialogs/dmenu.h',
         'include/dialogs/combi.h',
         'include/dialogs/script.h',
-        'include/dialogs/window.h',
         'include/dialogs/dialogs.h',
         'include/dialogs/help-keys.h',
         'include/dialogs/filebrowser.h',
         'include/dialogs/dmenuscriptshared.h',
 )
+if xcb_enabled
+    rofi_sources += files(
+        'source/dialogs/window.c',
+        'source/xcb/display.c',
+        'source/xcb/view.c',
+        'include/dialogs/window.h',
+        'include/xcb-internal.h',
+    )
+endif
+
 theme_lexer_sources = files('lexer/theme-lexer.l')
 theme_parser_sources = files('lexer/theme-parser.y')
 
 theme_lexer = flex.process(theme_lexer_sources)
 theme_parser = bison.process(theme_parser_sources)
 
-if get_option('wayland').enabled()
+if wayland_enabled
     wayland_sys_protocols_dir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
     wayland_scanner = find_program('wayland-scanner')
     protocols = files(
