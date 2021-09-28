@@ -111,7 +111,7 @@ For more up to date information, please see the manpages:
 
 # Installation
 
-Please see the [installation guide](https://github.com/davatorium/rofi/blob/next/INSTALL.md) for instructions on how to
+Please see the [installation guide](INSTALL.md) for instructions on how to
 install **Rofi**.
 
 # What is rofi not?
