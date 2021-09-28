@@ -1,9 +1,8 @@
-[![Issues](https://img.shields.io/github/issues/davatorium/rofi.svg)](https://github.com/davatorium/rofi/issues)
-[![Forks](https://img.shields.io/github/forks/davatorium/rofi.svg)](https://github.com/davatorium/rofi/network)
-[![Stars](https://img.shields.io/github/stars/davatorium/rofi.svg)](https://github.com/davatorium/rofi/stargazers)
-[![Downloads](https://img.shields.io/github/downloads/davatorium/rofi/total.svg)](https://github.com/davatorium/rofi/releases)
-[![Forum](https://img.shields.io/badge/forum-online-green.svg)](https://github.com/davatorium/rofi/discussions)
-[![Packages](https://repology.org/badge/tiny-repos/rofi.svg)](https://repology.org/metapackage/rofi/versions)
+[![Issues](https://img.shields.io/github/issues/lbonn/rofi.svg)](https://github.com/lbonn/rofi/issues)
+[![Forks](https://img.shields.io/github/forks/lbonn/rofi.svg)](https://github.com/lbonn/rofi/network)
+[![Stars](https://img.shields.io/github/stars/lbonn/rofi.svg)](https://github.com/lbonn/rofi/stargazers)
+[![Downloads](https://img.shields.io/github/downloads/lbonn/rofi/total.svg)](https://github.com/lbonn/rofi/releases)
+[![Packages](https://repology.org/badge/tiny-repos/rofi-wayland.svg)](https://repology.org/metapackage/rofi-wayland/versions)
 
 # A window switcher, Application launcher and dmenu replacement
 
