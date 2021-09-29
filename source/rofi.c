@@ -875,22 +875,25 @@ int main(int argc, char *argv[]) {
   }
   TICK();
 
-  const struct _display_proxy *proxy;
+  const struct _display_proxy *proxy = NULL;
 #ifdef ENABLE_XCB
   proxy = xcb_proxy;
   config.backend = DISPLAY_XCB;
+#endif
 
 #ifdef ENABLE_WAYLAND
+#ifdef ENABLE_XCB
   const gchar *wl_display = g_getenv("WAYLAND_DISPLAY");
-  if (find_arg("-x11") < 0 && wl_display != NULL && strlen(wl_display) > 0)
-#endif
-#endif
-#ifdef ENABLE_WAYLAND
-  {
+  if (find_arg("-x11") < 0 && wl_display != NULL && strlen(wl_display) > 0) {
     proxy = wayland_proxy;
     config.backend = DISPLAY_WAYLAND;
   }
+#else
+  proxy = wayland_proxy;
+  config.backend = DISPLAY_WAYLAND;
 #endif
+#endif
+
   display_init(proxy);
 
   TICK_N("Select Backend");
