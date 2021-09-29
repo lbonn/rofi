@@ -54,8 +54,10 @@ deps = [
 ]
 
 
-xcb_enabled = get_option('backends').contains('xcb')
-wayland_enabled = get_option('backends').contains('wayland')
+xcb_enabled = get_option('xcb').enabled()
+wayland_enabled = get_option('wayland').enabled()
+assert(xcb_enabled or wayland_enabled,
+    'At least one of these options must be enabled: wayland, xcb')
 
 libgwater = subproject('libgwater')
 

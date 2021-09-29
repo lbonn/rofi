@@ -63,10 +63,10 @@ Below is a list of the different modi:
 
 # Wayland support
 
-Wayland support is enabled by default in this fork, along with X11/XCB. You can build rofi _without_ XCB, if you like:
+Wayland support is enabled by default in this fork, along with X11/xcb. You can build rofi _without_ XCB, if you like:
 
 ```
-meson build -Dbackends=wayland
+meson build -Dxcb=disabled
 ```
 
 The rest of the installation process is unchanged (see [Installation](#Installation)).

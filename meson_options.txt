@@ -1,4 +1,5 @@
 option('drun', type: 'boolean', value: true, description: 'Desktop file mode')
 option('window', type: 'boolean', value: true, description: 'Window switcher mode')
 option('check', type: 'feature', description: 'Build and run libcheck-based tests')
-option('backends', type: 'array', choices: ['wayland', 'xcb'], description: 'Build with Wayland and/or X11/XCB backend')
+option('wayland', type: 'feature', value: 'enabled', description: 'Build with wayland support')
+option('xcb', type: 'feature', value: 'enabled', description: 'Build with X11/xcb support')
