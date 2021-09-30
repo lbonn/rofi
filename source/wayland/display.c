@@ -725,32 +725,75 @@ static void wayland_keyboard_release(wayland_seat *self) {
   self->keyboard = NULL;
 }
 
-static char *clipboard_read_data(int fds[2]) {
-  size_t read_bs = 1024;
-  char *new_clipboard_data = g_malloc(read_bs);
-  if (new_clipboard_data == NULL) {
-    close(fds[0]);
-    return NULL;
-  }
-  size_t k = 0;
+#define CLIPBOARD_READ_INCREMENT 1024
 
-  // TODO: do this outside of the wayland loop
-  while (1) {
-    ssize_t n = read(fds[0], new_clipboard_data + k, read_bs);
-    if (n <= 0) {
-      new_clipboard_data[k] = '\0';
-      break;
-    }
-    k += n;
-    new_clipboard_data = g_realloc(new_clipboard_data, k + read_bs);
-    if (new_clipboard_data == NULL) {
-      close(fds[0]);
-      return NULL;
-    }
-  }
-  close(fds[0]);
+typedef void (*clipboard_read_callback)(char *data);
 
-  return new_clipboard_data;
+struct clipboard_read_info {
+  char *buffer;
+  size_t size;
+  int fd;
+  clipboard_read_callback callback;
+};
+
+static gboolean clipboard_read_glib_callback(GIOChannel *channel, GIOCondition condition, gpointer opaque) {
+  struct clipboard_read_info *info = opaque;
+  gsize read;
+
+  switch (g_io_channel_read_chars(channel, info->buffer + info->size, CLIPBOARD_READ_INCREMENT, &read, NULL)) {
+    case G_IO_STATUS_AGAIN:
+      return TRUE;
+
+    case G_IO_STATUS_NORMAL: {
+      info->size += read;
+      info->buffer = g_realloc(info->buffer, info->size + CLIPBOARD_READ_INCREMENT);
+      if (!info->buffer) {
+        g_io_channel_shutdown(channel, FALSE, NULL);
+        g_io_channel_unref(channel);
+        close(info->fd);
+        g_free(info);
+        return FALSE;
+      }
+      return TRUE;
+    }
+
+    default:
+      info->buffer[info->size] = '\0';
+      info->callback(info->buffer);
+      g_io_channel_shutdown(channel, FALSE, NULL);
+      g_io_channel_unref(channel);
+      close(info->fd);
+      g_free(info);
+      return FALSE;
+  }
+}
+
+static gboolean clipboard_read_data(int fd, clipboard_read_callback callback) {
+  GIOChannel *channel = g_io_channel_unix_new(fd);
+
+  struct clipboard_read_info *info = g_malloc(sizeof *info);
+  if (info == NULL) {
+    g_io_channel_unref(channel);
+    close(fd);
+    return FALSE;
+  }
+
+  info->fd = fd;
+  info->size = 0;
+  info->callback = callback;
+  info->buffer = g_malloc(CLIPBOARD_READ_INCREMENT);
+
+  if (info->buffer == NULL) {
+    g_io_channel_unref(channel);
+    close(info->fd);
+    g_free(info);
+    return FALSE;
+  }
+
+  g_io_add_watch(channel, G_IO_IN | G_IO_HUP | G_IO_ERR,
+      clipboard_read_glib_callback, info);
+
+  return TRUE;
 }
 
 static void data_offer_handle_offer(void *data, struct wl_data_offer *offer,
@@ -764,6 +807,13 @@ static void data_device_handle_data_offer(void *data,
                                           struct wl_data_device *data_device,
                                           struct wl_data_offer *offer) {
   wl_data_offer_add_listener(offer, &data_offer_listener, NULL);
+}
+
+static void clipboard_default_callback(char *data) {
+  if (wayland->clipboard_default_data != NULL) {
+    g_free(wayland->clipboard_default_data);
+  }
+  wayland->clipboard_default_data = data;
 }
 
 static void data_device_handle_selection(void *data,
@@ -783,13 +833,7 @@ static void data_device_handle_selection(void *data,
 
   wl_display_roundtrip(wayland->display);
 
-  char *new_clipboard_data = clipboard_read_data(fds);
-
-  if (wayland->clipboard_default_data != NULL) {
-    g_free(wayland->clipboard_default_data);
-  }
-  wayland->clipboard_default_data = new_clipboard_data;
-
+  clipboard_read_data(fds[0], clipboard_default_callback);
   wl_data_offer_destroy(offer);
 }
 
@@ -815,6 +859,13 @@ static void primary_selection_device_handle_data_offer(
       offer, &primary_selection_offer_listener, NULL);
 }
 
+static void clipboard_primary_callback(char *data) {
+  if (wayland->clipboard_primary_data != NULL) {
+    g_free(wayland->clipboard_primary_data);
+  }
+  wayland->clipboard_primary_data = data;
+}
+
 static void primary_selection_device_handle_selection(
     void *data, struct zwp_primary_selection_device_v1 *data_device,
     struct zwp_primary_selection_offer_v1 *offer) {
@@ -832,13 +883,7 @@ static void primary_selection_device_handle_selection(
 
   wl_display_roundtrip(wayland->display);
 
-  char *new_clipboard_data = clipboard_read_data(fds);
-
-  if (wayland->clipboard_primary_data != NULL) {
-    g_free(wayland->clipboard_primary_data);
-  }
-  wayland->clipboard_primary_data = new_clipboard_data;
-
+  clipboard_read_data(fds[0], clipboard_primary_callback);
   zwp_primary_selection_offer_v1_destroy(offer);
 }
 
