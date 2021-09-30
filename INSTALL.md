@@ -186,7 +186,7 @@ can then load the core in GDB.
 
 ## Install distribution
 
-The wayland fork is currently available in some distributions as user contributed packages
+The Wayland fork is currently available in some distributions as user contributed packages
 
 ### Alpine
 
@@ -199,3 +199,7 @@ https://aur.archlinux.org/packages/rofi-lbonn-wayland-git/
 ### Fedora
 
 https://copr.fedorainfracloud.org/coprs/alebastr/sway-extras/
+
+### NixOS
+
+Install	[nur.repos.c0deaddict.rofi-wayland]([https://github.com/nix-community/nur-combined/blob/master/repos/c0deaddict/pkgs/rofi-wayland/unwrapped.nix) from NUR.
