@@ -339,7 +339,7 @@ pkg = import('pkgconfig')
 pkg.generate(
     filebase: 'rofi',
     name: 'rofi',
-    version: meson.project_version().split('-')[0],
+    version: meson.project_version().split('+')[0],
     description: 'Header files for rofi plugins',
     variables: [
         'pluginsdir=@0@'.format(join_paths('${libdir}', meson.project_name())),
