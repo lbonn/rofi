@@ -186,6 +186,10 @@ can then load the core in GDB.
 
 ## Install distribution
 
+<a href="https://repology.org/project/rofi-wayland/versions">
+    <img src="https://repology.org/badge/vertical-allrepos/rofi-wayland.svg" alt="Packaging status" align="right">
+</a>
+
 The wayland fork is currently available in some distributions as user contributed packages
 
 ### Alpine
