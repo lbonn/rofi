@@ -1270,7 +1270,9 @@ gboolean display_get_surface_dimensions(int *width, int *height) {
   return FALSE;
 }
 
-void display_set_surface_dimensions(int width, int height, int loc) {
+void display_set_surface_dimensions(
+    int width, int height, int x_margin, int y_margin, int loc) {
+
   wayland->layer_width = width;
   wayland->layer_height = height;
   zwlr_layer_surface_v1_set_size(wayland->wlr_surface, width, height);
@@ -1320,6 +1322,14 @@ void display_set_surface_dimensions(int width, int height, int loc) {
   }
 
   zwlr_layer_surface_v1_set_anchor(wayland->wlr_surface, wlr_anchor);
+
+  // NOTE: Setting margin for edges we are not anchored to has no effect, so we
+  // can safely set contradictory margins (e.g. top vs bottom) - at most one of
+  // the margins on a given axis will have effect.
+  // This also means that margin has no effect if the window is centered. :(
+  zwlr_layer_surface_v1_set_margin(wayland->wlr_surface,
+                                   y_margin, -x_margin,
+                                   -y_margin, x_margin);
 }
 
 static void wayland_display_early_cleanup(void) {}

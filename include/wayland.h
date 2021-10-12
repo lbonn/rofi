@@ -41,6 +41,8 @@ cairo_surface_t *display_buffer_pool_get_next_buffer(display_buffer_pool *pool);
 void display_surface_commit(cairo_surface_t *surface);
 
 gboolean display_get_surface_dimensions(int *width, int *height);
-void display_set_surface_dimensions(int width, int height, int loc);
+void display_set_surface_dimensions(int width, int height,
+                                    int x_margin, int y_margin,
+                                    int loc);
 
 #endif
