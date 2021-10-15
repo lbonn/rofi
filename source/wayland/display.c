@@ -1208,8 +1208,16 @@ static gboolean wayland_display_setup(GMainLoop *main_loop,
     return FALSE;
   }
 
+  guint64 cursor_size = 24;
+  char *env_cursor_size = (char *)g_getenv("XCURSOR_SIZE");
+  if (env_cursor_size && strlen(env_cursor_size) > 0) {
+      guint64 size = g_ascii_strtoull(env_cursor_size, NULL, 10);
+      if (0 < size && size < G_MAXUINT64) {
+          cursor_size = size;
+      }
+  }
   wayland->cursor.theme =
-      wl_cursor_theme_load(wayland->cursor.theme_name, 32, wayland->shm);
+      wl_cursor_theme_load(wayland->cursor.theme_name, cursor_size, wayland->shm);
   if (wayland->cursor.theme != NULL) {
     const char *const *cname = (const char *const *)wayland->cursor.name;
     for (cname = (cname != NULL) ? cname : wayland_cursor_names;
