@@ -1,5 +1,5 @@
 project('rofi', 'c',
-    version: '1.7.2+wayland1-dev',
+    version: '1.7.2+wayland2-dev',
     meson_version: '>=0.47.0',
     license: [ 'MIT' ],
     default_options: [
@@ -297,6 +297,8 @@ install_man(
     'doc/rofi-sensible-terminal.1',
     'doc/rofi-script.5',
     'doc/rofi-theme.5',
+    'doc/rofi-dmenu.5',
+    'doc/rofi-keys.5',
 )
 
 install_data(

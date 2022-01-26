@@ -28,8 +28,8 @@
 /** The log domain of this dialog. */
 #define G_LOG_DOMAIN "Dialogs.Script"
 
-#include "config.h"
 #include "dialogs/script.h"
+#include "config.h"
 #include "helper.h"
 #include "rofi.h"
 #include <assert.h>
@@ -202,20 +202,22 @@ static DmenuScriptEntry *execute_executor(Mode *sw, char *arg,
             actual_size += 256;
             retv = g_realloc(retv, (actual_size) * sizeof(DmenuScriptEntry));
           }
-          size_t buf_length = strlen(buffer) + 1;
-          retv[(*length)].entry = g_memdup(buffer, buf_length);
-          retv[(*length)].icon_name = NULL;
-          retv[(*length)].meta = NULL;
-          retv[(*length)].info = NULL;
-          retv[(*length)].icon_fetch_uid = 0;
-          retv[(*length)].nonselectable = FALSE;
-          if (buf_length > 0 && (read_length > (ssize_t)buf_length)) {
-            dmenuscript_parse_entry_extras(sw, &(retv[(*length)]),
-                                           buffer + buf_length,
-                                           read_length - buf_length);
+          if (retv) {
+            size_t buf_length = strlen(buffer) + 1;
+            retv[(*length)].entry = g_memdup(buffer, buf_length);
+            retv[(*length)].icon_name = NULL;
+            retv[(*length)].meta = NULL;
+            retv[(*length)].info = NULL;
+            retv[(*length)].icon_fetch_uid = 0;
+            retv[(*length)].nonselectable = FALSE;
+            if (buf_length > 0 && (read_length > (ssize_t)buf_length)) {
+              dmenuscript_parse_entry_extras(sw, &(retv[(*length)]),
+                                             buffer + buf_length,
+                                             read_length - buf_length);
+            }
+            retv[(*length) + 1].entry = NULL;
+            (*length)++;
           }
-          retv[(*length) + 1].entry = NULL;
-          (*length)++;
         }
       }
       if (buffer) {
@@ -420,7 +422,7 @@ script_get_icon(const Mode *sw, unsigned int selected_line, int height) {
 }
 
 #include "mode-private.h"
-Mode *script_switcher_parse_setup(const char *str) {
+Mode *script_mode_parse_setup(const char *str) {
   Mode *sw = g_malloc0(sizeof(*sw));
   char *endp = NULL;
   char *parse = g_strdup(str);
@@ -458,6 +460,6 @@ Mode *script_switcher_parse_setup(const char *str) {
   return NULL;
 }
 
-gboolean script_switcher_is_valid(const char *token) {
+gboolean script_mode_is_valid(const char *token) {
   return strchr(token, ':') != NULL;
 }

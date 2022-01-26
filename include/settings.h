@@ -162,6 +162,8 @@ typedef struct {
   /** Maximum history length per mode. */
   unsigned int max_history_size;
   gboolean combi_hide_mode_prefix;
+  /** Combi format display */
+  char *combi_display_format;
 
   char matching_negate_char;
 

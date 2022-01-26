@@ -1017,12 +1017,12 @@ static WidgetTriggerActionResult textbox_button_trigger_action(
   switch (action) {
   case MOUSE_CLICK_DOWN: {
     const char *type = rofi_theme_get_string(wid, "action", NULL);
-    if (type ) {
-      if ( state->list_view) {
+    if (type) {
+      if (state->list_view) {
         (state->selected_line) =
-        state->line_map[listview_get_selected(state->list_view)];
+            state->line_map[listview_get_selected(state->list_view)];
       } else {
-          (state->selected_line) = UINT32_MAX;
+        (state->selected_line) = UINT32_MAX;
       }
       guint id = key_binding_get_action_from_name(type);
       if (id != UINT32_MAX) {
@@ -1261,11 +1261,22 @@ static void rofi_view_add_widget(RofiViewState *state, widget *parent_widget,
     // g_error("The widget %s does not exists. Invalid layout.", name);
   }
   if (wid) {
-    GList *list = rofi_theme_get_list(wid, "children", defaults);
-    for (const GList *iter = list; iter != NULL; iter = g_list_next(iter)) {
-      rofi_view_add_widget(state, wid, (const char *)iter->data);
+    GList *list = rofi_theme_get_list_strings(wid, "children");
+    if (list == NULL) {
+      if (defaults) {
+        char **a = g_strsplit(defaults, ",", 0);
+        for (int i = 0; a && a[i]; i++) {
+          rofi_view_add_widget(state, wid, a[i]);
+        }
+        g_strfreev(a);
+      }
+    } else {
+      for (const GList *iter = g_list_first(list); iter != NULL;
+           iter = g_list_next(iter)) {
+        rofi_view_add_widget(state, wid, (const char *)iter->data);
+      }
+      g_list_free_full(list, g_free);
     }
-    g_list_free_full(list, g_free);
   }
 }
 
@@ -1305,12 +1316,16 @@ RofiViewState *rofi_view_create(Mode *sw, const char *input,
   state->main_window = box_create(NULL, "window", ROFI_ORIENTATION_VERTICAL);
   // Get children.
   GList *list =
-      rofi_theme_get_list(WIDGET(state->main_window), "children", "mainbox");
-  for (const GList *iter = list; iter != NULL; iter = g_list_next(iter)) {
-    rofi_view_add_widget(state, WIDGET(state->main_window),
-                         (const char *)iter->data);
+      rofi_theme_get_list_strings(WIDGET(state->main_window), "children");
+  if (list == NULL) {
+    rofi_view_add_widget(state, WIDGET(state->main_window), "mainbox");
+  } else {
+    for (const GList *iter = list; iter != NULL; iter = g_list_next(iter)) {
+      rofi_view_add_widget(state, WIDGET(state->main_window),
+                           (const char *)iter->data);
+    }
+    g_list_free_full(list, g_free);
   }
-  g_list_free_full(list, g_free);
 
   if (state->text && input) {
     textbox_text(state->text, input);

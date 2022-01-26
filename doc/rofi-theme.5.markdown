@@ -216,6 +216,7 @@ The current theme format supports different types:
  * an orientation
  * a cursor
  * a list of keywords
+ * an array of values
  * an environment variable
  * Inherit
 
@@ -409,6 +410,9 @@ It supports the following operations:
 * `%`   : Multiply
 * `min` : Minimum of l or rvalue;
 * `max` : Maximum of l or rvalue;
+* `floor` : Round down lvalue to the next multiple of rvalue 
+* `ceil` : Round up lvalue to the next multiple of rvalue 
+* `round` : Round lvalue to the next multiple of rvalue 
 
 It uses the C precedence ordering.
 
@@ -446,6 +450,7 @@ Borders are identical to padding, except that each distance field has a line
 style property.
 
 > When no unit is specified, pixels are assumed.
+
 
 ## Position
 
@@ -529,6 +534,12 @@ Specify the type of mouse cursor that is set when the mouse pointer is over the 
 
 A list starts with a '[' and ends with a ']'. The entries in the list are comma-separated.
 The `keyword` in the list refers to an widget name.
+
+## List of values
+
+* Format: `[ value, value, ... ]`
+
+An list starts with a '[' and ends with a ']'. The entries in the list are comma-separated.
 
 ## Environment variable
 
@@ -757,6 +768,10 @@ The following properties are currently supported:
 * **placeholder-color**: Color of the placeholder text.
 * **blink**:             Enable/Disable blinking on an input textbox (Boolean).
 * **markup**:            Force markup on, beware that only valid pango markup strings are shown.
+* **tab-stops**:         array of distances
+    Set the location of tab stops by their distance from the beginning of the line.
+    Each distance should be greater than the previous one.
+    The text appears to the right of the tab stop position (other alignments are not supported yet).
 
 ### listview:
 * **columns**:         integer
@@ -1106,6 +1121,12 @@ To test minor changes, part of the theme can be passed on the command line, for 
 
 ```
 rofi -theme-str 'window { fullscreen:true;}' -show run
+```
+
+Another syntax to modify theme properties is:
+
+```bash
+rofi -theme+window+fullscreen true -show run
 ```
 
 To print the current theme, run:

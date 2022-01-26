@@ -350,7 +350,14 @@ static XrmOption xrmOptions[] = {
      "combi-hide-mode-prefix",
      {.snum = &config.combi_hide_mode_prefix},
      NULL,
-     "Hide the prefix mode prefix on the combi view.",
+     "Hide the prefix mode prefix on the combi view.**deprecated** use "
+     "combi-display-format",
+     CONFIG_DEFAULT},
+    {xrm_String,
+     "combi-display-format",
+     {.str = &config.combi_display_format},
+     NULL,
+     "Combi format string. (Supports: mode, text)",
      CONFIG_DEFAULT},
     {xrm_Char,
      "matching-negate-char",
@@ -500,6 +507,25 @@ static void config_parse_cmd_option(XrmOption *option) {
   g_free(key);
 }
 
+static gboolean config_parser_form_rasi_format(GString *str, char **tokens,
+                                               int count, char *argv,
+                                               gboolean string) {
+  for (int j = 0; j < (count - 1); j++) {
+    g_string_append_printf(str, "%s { ", tokens[j]);
+  }
+  if (string) {
+    char *esc = g_strescape(argv, NULL);
+    g_string_append_printf(str, "%s: \"%s\";", tokens[count - 1], esc);
+    g_free(esc);
+  } else {
+    g_string_append_printf(str, "%s: %s;", tokens[count - 1], argv);
+  }
+  for (int j = 0; j < (count - 1); j++) {
+    g_string_append(str, " } ");
+  }
+  return TRUE;
+}
+
 void config_parse_cmd_options(void) {
   for (unsigned int i = 0; i < sizeof(xrmOptions) / sizeof(XrmOption); ++i) {
     XrmOption *op = &(xrmOptions[i]);
@@ -516,41 +542,53 @@ void config_parse_cmd_options(void) {
   extern char **stored_argv;
   for (int in = 1; in < (stored_argc - 1); in++) {
     if (stored_argv[in][0] == '-') {
+      if (stored_argv[in + 1][0] == '-') {
+        continue;
+      }
       /** TODO: This is a hack, and should be fixed in a nicer way. */
       char **tokens = g_strsplit(stored_argv[in], "-", 3);
       int count = 1;
       for (int j = 1; tokens && tokens[j]; j++) {
         count++;
       }
-      if (count > 2 && g_strcmp0(tokens[1], "no") != 0) {
-        GString *str = g_string_new("configuration { ");
-        for (int j = 1; j < (count - 1); j++) {
-          g_string_append_printf(str, "%s { ", tokens[j]);
-        }
-        g_string_append_printf(str, "%s: %s;", tokens[count - 1],
-                               stored_argv[in + 1]);
-        for (int j = 0; j < (count - 1); j++) {
-          g_string_append(str, " } ");
-        }
-        if (rofi_theme_parse_string(str->str) == 1) {
-          /** Failed to parse, try again as string. */
-          rofi_clear_error_messages();
-          g_string_assign(str, "configuration { ");
-          for (int j = 1; j < (count - 1); j++) {
-            g_string_append_printf(str, "%s { ", tokens[j]);
+      if (count >= 2) {
+        if (g_str_has_prefix(tokens[1], "theme")) {
+          g_strfreev(tokens);
+          tokens = g_strsplit(stored_argv[in], "+", 0);
+          count = g_strv_length(tokens);
+          if (count > 2) {
+            GString *str = g_string_new("");
+            config_parser_form_rasi_format(str, &(tokens[1]), count - 1,
+                                           stored_argv[in + 1], FALSE);
+            if (rofi_theme_parse_string(str->str) == 1) {
+              /** Failed to parse, try again as string. */
+              g_strfreev(tokens);
+              g_string_free(str, TRUE);
+              return;
+            }
+            g_string_free(str, TRUE);
           }
-          char *esc = g_strescape(stored_argv[in + 1], NULL);
-          g_string_append_printf(str, "%s: \"%s\";", tokens[count - 1], esc);
-          g_free(esc);
-          for (int j = 0; j < (count - 1); j++) {
-            g_string_append(str, " } ");
-          }
+        } else if (g_strcmp0(tokens[1], "no") != 0) {
+          GString *str = g_string_new("configuration { ");
+          config_parser_form_rasi_format(str, &(tokens[1]), count - 1,
+                                         stored_argv[in + 1], FALSE);
+          g_string_append(str, "}");
+          g_debug("str: \"%s\"\n", str->str);
           if (rofi_theme_parse_string(str->str) == 1) {
             /** Failed to parse, try again as string. */
             rofi_clear_error_messages();
+            g_string_assign(str, "configuration { ");
+            config_parser_form_rasi_format(str, &(tokens[1]), count - 1,
+                                           stored_argv[in + 1], TRUE);
+            g_string_append(str, "}");
+            g_debug("str: \"%s\"\n", str->str);
+            if (rofi_theme_parse_string(str->str) == 1) {
+              /** Failed to parse, try again as string. */
+              rofi_clear_error_messages();
+            }
           }
+          g_string_free(str, TRUE);
         }
-        g_string_free(str, TRUE);
         in++;
       }
       g_strfreev(tokens);
@@ -571,10 +609,11 @@ static gboolean __config_parser_set_property(XrmOption *option,
     if (p->type == P_LIST) {
       for (GList *iter = p->value.list; iter != NULL;
            iter = g_list_next(iter)) {
+        Property *p = (Property *)iter->data;
         if (value == NULL) {
-          value = g_strdup((char *)(iter->data));
+          value = g_strdup((char *)(p->value.s));
         } else {
-          char *nv = g_strjoin(",", value, (char *)(iter->data), NULL);
+          char *nv = g_strjoin(",", value, (char *)(p->value.s), NULL);
           g_free(value);
           value = nv;
         }
@@ -666,7 +705,7 @@ gboolean config_parse_set_property(const Property *p, char **error) {
     }
   }
   //*error = g_strdup_printf("Option: %s is not found.", p->name);
-  g_warning("Option: %s is not found.", p->name);
+  g_debug("Option: %s is not found.", p->name);
 
   for (GList *iter = g_list_first(extra_parsed_options); iter != NULL;
        iter = g_list_next(iter)) {

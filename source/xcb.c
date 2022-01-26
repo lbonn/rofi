@@ -747,6 +747,10 @@ static int monitor_get_dimension(int monitor_id, workarea *mon) {
 }
 // find the dimensions of the monitor displaying point x,y
 static void monitor_dimensions(int x, int y, workarea *mon) {
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return;
+  }
   memset(mon, 0, sizeof(workarea));
   mon->w = xcb->screen->width_in_pixels;
   mon->h = xcb->screen->height_in_pixels;
@@ -784,7 +788,12 @@ static int pointer_get(xcb_window_t root, int *x, int *y) {
 
   return FALSE;
 }
+
 static int monitor_active_from_winid(xcb_drawable_t id, workarea *mon) {
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return FALSE;
+  }
   xcb_window_t root = xcb->screen->root;
   xcb_get_geometry_cookie_t c = xcb_get_geometry(xcb->connection, id);
   xcb_get_geometry_reply_t *r =
@@ -814,6 +823,10 @@ static int monitor_active_from_id_focused(int mon_id, workarea *mon) {
   int retv = FALSE;
   xcb_window_t active_window;
   xcb_get_property_cookie_t awc;
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return retv;
+  }
   awc = xcb_ewmh_get_active_window(&xcb->ewmh, xcb->screen_nbr);
   if (!xcb_ewmh_get_active_window_reply(&xcb->ewmh, awc, &active_window,
                                         NULL)) {
@@ -862,7 +875,9 @@ static int monitor_active_from_id_focused(int mon_id, workarea *mon) {
       }
       g_debug("mon pos: %d %d %d-%d", mon->x, mon->y, mon->w, mon->h);
     } else if (mon_id == -4) {
+      g_debug("Find monitor at location: %d %d", t->dst_x, t->dst_y);
       monitor_dimensions(t->dst_x, t->dst_y, mon);
+      g_debug("Monitor found pos: %d %d %d-%d", mon->x, mon->y, mon->w, mon->h);
       retv = TRUE;
     }
     free(t);
@@ -877,6 +892,11 @@ static int monitor_active_from_id_focused(int mon_id, workarea *mon) {
 static int monitor_active_from_id(int mon_id, workarea *mon) {
   xcb_window_t root = xcb->screen->root;
   int x, y;
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return FALSE;
+  }
+  g_debug("Monitor id: %d", mon_id);
   // At mouse position.
   if (mon_id == -3) {
     if (pointer_get(root, &x, &y)) {
@@ -888,19 +908,27 @@ static int monitor_active_from_id(int mon_id, workarea *mon) {
   }
   // Focused monitor
   else if (mon_id == -1) {
+    g_debug("rofi on current monitor");
     // Get the current desktop.
     unsigned int current_desktop = 0;
     xcb_get_property_cookie_t gcdc;
     gcdc = xcb_ewmh_get_current_desktop(&xcb->ewmh, xcb->screen_nbr);
     if (xcb_ewmh_get_current_desktop_reply(&xcb->ewmh, gcdc, &current_desktop,
                                            NULL)) {
+      g_debug("Found current desktop: %u", current_desktop);
       xcb_get_property_cookie_t c =
           xcb_ewmh_get_desktop_viewport(&xcb->ewmh, xcb->screen_nbr);
       xcb_ewmh_get_desktop_viewport_reply_t vp;
       if (xcb_ewmh_get_desktop_viewport_reply(&xcb->ewmh, c, &vp, NULL)) {
+        g_debug("Found %d number of desktops", vp.desktop_viewport_len);
         if (current_desktop < vp.desktop_viewport_len) {
+          g_debug("Found viewport for desktop: %d %d",
+                  vp.desktop_viewport[current_desktop].x,
+                  vp.desktop_viewport[current_desktop].y);
           monitor_dimensions(vp.desktop_viewport[current_desktop].x,
                              vp.desktop_viewport[current_desktop].y, mon);
+          g_debug("Found monitor @: %d %d %dx%d", mon->x, mon->y, mon->w,
+                  mon->h);
           xcb_ewmh_get_desktop_viewport_reply_wipe(&vp);
           return TRUE;
         }
@@ -937,20 +965,42 @@ static int monitor_active_from_id(int mon_id, workarea *mon) {
 
 // determine which monitor holds the active window, or failing that the mouse
 // pointer
+
+gboolean mon_set = FALSE;
+workarea mon_cache = {
+    0,
+};
 int monitor_active(workarea *mon) {
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return FALSE;
+  }
+  g_debug("Monitor active");
+  if (mon_set) {
+    if (mon) {
+      *mon = mon_cache;
+      return TRUE;
+    }
+  }
   if (config.monitor != NULL) {
+    g_debug("Monitor lookup  by name : %s", config.monitor);
     for (workarea *iter = xcb->monitors; iter; iter = iter->next) {
       if (g_strcmp0(config.monitor, iter->name) == 0) {
         *mon = *iter;
+        mon_cache = *mon;
+        mon_set = TRUE;
         return TRUE;
       }
     }
   }
+  g_debug("Monitor lookup  by name failed: %s", config.monitor);
   // Grab primary.
   if (g_strcmp0(config.monitor, "primary") == 0) {
     for (workarea *iter = xcb->monitors; iter; iter = iter->next) {
       if (iter->primary) {
         *mon = *iter;
+        mon_cache = *mon;
+        mon_set = TRUE;
         return TRUE;
       }
     }
@@ -960,6 +1010,8 @@ int monitor_active(workarea *mon) {
     xcb_drawable_t win = g_ascii_strtoll(config.monitor + 4, &end, 0);
     if (end != config.monitor) {
       if (monitor_active_from_winid(win, mon)) {
+        mon_cache = *mon;
+        mon_set = TRUE;
         return TRUE;
       }
     }
@@ -971,16 +1023,23 @@ int monitor_active(workarea *mon) {
     if (end != config.monitor) {
       if (mon_id >= 0) {
         if (monitor_get_dimension(mon_id, mon)) {
+          mon_cache = *mon;
+          mon_set = TRUE;
           return TRUE;
         }
         g_warning("Failed to find selected monitor.");
       } else {
-        return monitor_active_from_id(mon_id, mon);
+        int val = monitor_active_from_id(mon_id, mon);
+        mon_cache = *mon;
+        mon_set = TRUE;
+        return val;
       }
     }
   }
   // Fallback.
   monitor_dimensions(0, 0, mon);
+  mon_cache = *mon;
+  mon_set = TRUE;
   return FALSE;
 }
 
@@ -1186,6 +1245,7 @@ static void main_loop_x11_event_handler_view(xcb_generic_event_t *event) {
         NK_BINDINGS_KEY_STATE_PRESS);
     if (text != NULL) {
       rofi_view_handle_text(state, text);
+      g_free(text);
     }
     break;
   }

@@ -393,24 +393,6 @@ Property *rofi_theme_find_property(ThemeWidget *widget, PropertyType type,
                                    const char *property, gboolean exact);
 
 /**
- * @param widget   The widget to query
- * @param property The property to query.
- * @param defaults The default value.
- *
- * Obtain list of elements (strings) of the widget.
- *
- * @returns a GList holding the names in the list of this property for this
- * widget.
- */
-GList *rofi_theme_get_list(const widget *widget, const char *property,
-                           const char *defaults);
-/**
- * Checks if a theme is set, or is empty.
- * @returns TRUE when empty.
- */
-gboolean rofi_theme_is_empty(void);
-
-/**
  * Reset the current theme.
  */
 void rofi_theme_reset(void);
@@ -459,4 +441,23 @@ RofiDistance rofi_theme_property_copy_distance(RofiDistance const distance);
  */
 int rofi_theme_rasi_validate(const char *filename);
 
+/**
+ *
+ * Free memory.
+ */
+void rofi_theme_free_parsed_files(void);
+
+/**
+ * @param is_term Indicate if printed to terminal.
+ *
+ * Print the list of parsed config files.
+ */
+void rofi_theme_print_parsed_files(int is_term);
+
+/**
+ * Returns a list of allocated RofiDistance objects that should be
+ * freed.
+ */
+GList *rofi_theme_get_list_distance(const widget *widget, const char *property);
+GList *rofi_theme_get_list_strings(const widget *widget, const char *property);
 #endif

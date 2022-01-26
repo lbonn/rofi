@@ -110,7 +110,7 @@ unsigned int num_available_modi = 0;
 /** Number of activated modi in #modi array */
 unsigned int num_modi = 0;
 /** Current selected mode */
-unsigned int curr_switcher = 0;
+unsigned int curr_mode = 0;
 
 /** Handle to NkBindings object for input devices. */
 NkBindings *bindings = NULL;
@@ -132,13 +132,13 @@ unsigned int rofi_get_num_enabled_modi(void) { return num_modi; }
 const Mode *rofi_get_mode(unsigned int index) { return modi[index]; }
 
 /**
- * @param name Name of the switcher to lookup.
+ * @param name Name of the mode to lookup.
  *
- * Find the index of the switcher with name.
+ * Find the index of the mode with name.
  *
- * @returns index of the switcher in modi, -1 if not found.
+ * @returns index of the mode in modi, -1 if not found.
  */
-static int switcher_get(const char *name) {
+static int mode_lookup(const char *name) {
   for (unsigned int i = 0; i < num_modi; i++) {
     if (strcmp(mode_get_name(modi[i]), name) == 0) {
       return i;
@@ -162,7 +162,7 @@ static void teardown(int pfd) {
   // Cleanup pid file.
   remove_pid_file(pfd);
 }
-static void run_switcher(ModeMode mode) {
+static void run_mode_index(ModeMode mode) {
   // Otherwise check if requested mode is enabled.
   for (unsigned int i = 0; i < num_modi; i++) {
     if (!mode_init(modi[i])) {
@@ -179,7 +179,7 @@ static void run_switcher(ModeMode mode) {
   if (rofi_view_get_active() != NULL) {
     return;
   }
-  curr_switcher = mode;
+  curr_mode = mode;
   RofiViewState *state =
       rofi_view_create(modi[mode], config.filter, 0, process_result);
 
@@ -217,7 +217,7 @@ void process_result(RofiViewState *state) {
     }
     g_free(input);
 
-    ModeMode mode = curr_switcher;
+    ModeMode mode = curr_mode;
     // Find next enabled
     if (retv == NEXT_DIALOG) {
       mode = (mode + 1) % num_modi;
@@ -241,7 +241,7 @@ void process_result(RofiViewState *state) {
        * Load in the new mode.
        */
       rofi_view_switch_mode(state, modi[mode]);
-      curr_switcher = mode;
+      curr_mode = mode;
       return;
     }
     // On exit, free current view, and pop to one above.
@@ -266,7 +266,7 @@ static void print_list_of_modi(int is_term) {
         break;
       }
     }
-    printf("        * %s%s%s%s\n", active ? "+" : "",
+    printf("        • %s%s%s%s\n", active ? "+" : "",
            is_term ? (active ? color_green : color_red) : "",
            available_modi[i]->name, is_term ? color_reset : "");
   }
@@ -325,31 +325,31 @@ static void help(G_GNUC_UNUSED int argc, char **argv) {
   printf("\n");
   printf("Compile time options:\n");
 #ifdef WINDOW_MODE
-  printf("\t* window  %senabled%s\n", is_term ? color_green : "",
+  printf("\t• window  %senabled%s\n", is_term ? color_green : "",
          is_term ? color_reset : "");
 #else
-  printf("\t* window  %sdisabled%s\n", is_term ? color_red : "",
+  printf("\t• window  %sdisabled%s\n", is_term ? color_red : "",
          is_term ? color_reset : "");
 #endif
 #ifdef ENABLE_DRUN
-  printf("\t* drun    %senabled%s\n", is_term ? color_green : "",
+  printf("\t• drun    %senabled%s\n", is_term ? color_green : "",
          is_term ? color_reset : "");
 #else
-  printf("\t* drun    %sdisabled%s\n", is_term ? color_red : "",
+  printf("\t• drun    %sdisabled%s\n", is_term ? color_red : "",
          is_term ? color_reset : "");
 #endif
 #ifdef ENABLE_GCOV
-  printf("\t* gcov    %senabled%s\n", is_term ? color_green : "",
+  printf("\t• gcov    %senabled%s\n", is_term ? color_green : "",
          is_term ? color_reset : "");
 #else
-  printf("\t* gcov    %sdisabled%s\n", is_term ? color_red : "",
+  printf("\t• gcov    %sdisabled%s\n", is_term ? color_red : "",
          is_term ? color_reset : "");
 #endif
 #ifdef ENABLE_ASAN
-  printf("\t* asan    %senabled%s\n", is_term ? color_green : "",
+  printf("\t• asan    %senabled%s\n", is_term ? color_green : "",
          is_term ? color_reset : "");
 #else
-  printf("\t* asan    %sdisabled%s\n", is_term ? color_red : "",
+  printf("\t• asan    %sdisabled%s\n", is_term ? color_red : "",
          is_term ? color_reset : "");
 #endif
   printf("\n");
@@ -377,6 +377,7 @@ static void help(G_GNUC_UNUSED int argc, char **argv) {
     printf("      Configuration file: %sDisabled%s\n",
            is_term ? color_bold : "", is_term ? color_reset : "");
   }
+  rofi_theme_print_parsed_files(is_term);
 }
 
 static void help_print_disabled_mode(const char *mode) {
@@ -475,6 +476,7 @@ static void cleanup(void) {
   rofi_collect_modi_destroy();
   rofi_icon_fetcher_destroy();
 
+  rofi_theme_free_parsed_files();
   if (rofi_configuration) {
     rofi_theme_free(rofi_configuration);
     rofi_configuration = NULL;
@@ -612,11 +614,11 @@ static void rofi_collect_modi_destroy(void) {
 }
 
 /**
- * Parse the switcher string, into internal array of type Mode.
+ * Parse the mode string, into internal array of type Mode.
  *
  * String is split on separator ','
  * First the three build-in modi are checked: window, run, ssh
- * if that fails, a script-switcher is created.
+ * if that fails, a script-mode is created.
  */
 static int add_mode(const char *token) {
   unsigned int index = num_modi;
@@ -627,9 +629,9 @@ static int add_mode(const char *token) {
   if (mode) {
     modi[num_modi] = mode;
     num_modi++;
-  } else if (script_switcher_is_valid(token)) {
+  } else if (script_mode_is_valid(token)) {
     // If not build in, use custom modi.
-    Mode *sw = script_switcher_parse_setup(token);
+    Mode *sw = script_mode_parse_setup(token);
     if (sw != NULL) {
       // Add to available list, so combi can find it.
       rofi_collect_modi_add(sw);
@@ -644,16 +646,16 @@ static gboolean setup_modi(void) {
   const char *const sep = ",#";
   char *savept = NULL;
   // Make a copy, as strtok will modify it.
-  char *switcher_str = g_strdup(config.modi);
-  // Split token on ','. This modifies switcher_str.
-  for (char *token = strtok_r(switcher_str, sep, &savept); token != NULL;
+  char *mode_str = g_strdup(config.modi);
+  // Split token on ','. This modifies mode_str.
+  for (char *token = strtok_r(mode_str, sep, &savept); token != NULL;
        token = strtok_r(NULL, sep, &savept)) {
     if (add_mode(token) == -1) {
       help_print_mode_not_found(token);
     }
   }
   // Free string that was modified by strtok_r
-  g_free(switcher_str);
+  g_free(mode_str);
   return FALSE;
 }
 
@@ -715,7 +717,7 @@ static gboolean startup(G_GNUC_UNUSED gpointer data) {
   if (dmenu_mode == TRUE) {
     // force off sidebar mode:
     config.sidebar_mode = FALSE;
-    int retv = dmenu_switcher_dialog();
+    int retv = dmenu_mode_dialog();
     if (retv) {
       rofi_set_return_code(EXIT_SUCCESS);
       // Directly exit.
@@ -730,7 +732,7 @@ static gboolean startup(G_GNUC_UNUSED gpointer data) {
       g_main_loop_quit(main_loop);
     }
   } else if (find_arg_str("-show", &sname) == TRUE) {
-    int index = switcher_get(sname);
+    int index = mode_lookup(sname);
     if (index < 0) {
       // Add it to the list
       index = add_mode(sname);
@@ -741,14 +743,14 @@ static gboolean startup(G_GNUC_UNUSED gpointer data) {
       // Run it anyway if found.
     }
     if (index >= 0) {
-      run_switcher(index);
+      run_mode_index(index);
     } else {
       help_print_mode_not_found(sname);
       show_error_dialog();
       return G_SOURCE_REMOVE;
     }
   } else if (find_arg("-show") >= 0 && num_modi > 0) {
-    run_switcher(0);
+    run_mode_index(0);
   } else {
     help_print_no_arguments();
 
@@ -983,8 +985,6 @@ int main(int argc, char *argv[]) {
   }
   TICK_N("Load cmd config ");
 
-  parse_keys_abe(bindings);
-
   // Get the path to the cache dir.
   cache_dir = g_get_user_cache_dir();
 
@@ -1030,6 +1030,7 @@ int main(int argc, char *argv[]) {
     g_free(theme_str);
   }
 
+  parse_keys_abe(bindings);
   if (find_arg("-dump-theme") >= 0) {
     rofi_theme_print(rofi_theme);
     cleanup();
@@ -1068,8 +1069,12 @@ int main(int argc, char *argv[]) {
   rofi_icon_fetcher_init();
   TICK_N("Icon fetcher initialize");
 
+  gboolean kill_running = FALSE;
+  if (find_arg("-replace") >= 0) {
+    kill_running = TRUE;
+  }
   // Create pid file
-  int pfd = create_pid_file(pidfile);
+  int pfd = create_pid_file(pidfile, kill_running);
   TICK_N("Pid file created");
   if (pfd < 0) {
     cleanup();

@@ -231,6 +231,7 @@ static ThemeColor hwb_to_rgb ( double h, double w, double b )
 %token T_OPTIONAL_COMMA                 "Optional comma separator (',')"
 %token T_FORWARD_SLASH                  "forward slash ('/')"
 %token T_PERCENT                        "Percent sign ('%')"
+
 %token T_LIST_OPEN                      "List open ('[')"
 %token T_LIST_CLOSE                     "List close (']')"
 
@@ -240,6 +241,9 @@ static ThemeColor hwb_to_rgb ( double h, double w, double b )
 
 %token T_MODIFIER_MAX                   "Max ('max')"
 %token T_MODIFIER_MIN                   "Min ('min')"
+%token T_MODIFIER_ROUND                 "Min ('round')"
+%token T_MODIFIER_FLOOR                 "Min ('floor')"
+%token T_MODIFIER_CEIL                  "Min ('ceil')"
 
 %token T_CALC                           "calc"
 
@@ -649,8 +653,18 @@ t_property_element_list_optional
 ;
 
 t_property_element_list
-: T_ELEMENT { $$ = g_list_append ( NULL, $1); }
+: t_property_element { $$ = g_list_append ( NULL, $1); }
+| T_ELEMENT {
+  Property *p = rofi_theme_property_create ( P_STRING );
+  p->value.s = $1;
+  $$ = g_list_append ( NULL, p);
+}
 | t_property_element_list T_COMMA T_ELEMENT {
+  Property *p = rofi_theme_property_create ( P_STRING );
+  p->value.s = $3;
+  $$ = g_list_append ( $1, p);
+}
+| t_property_element_list T_COMMA t_property_element {
     $$ = g_list_append ( $1, $3 );
 }
 ;
@@ -800,6 +814,24 @@ t_property_distance_unit_math3
     $$->left    = $1;
     $$->right   = $3;
     $$->modtype = ROFI_DISTANCE_MODIFIER_MAX;
+}
+| t_property_distance_unit_math3 T_MODIFIER_ROUND t_property_distance_unit_math2 {
+    $$ = g_slice_new0(RofiDistanceUnit);
+    $$->left    = $1;
+    $$->right   = $3;
+    $$->modtype = ROFI_DISTANCE_MODIFIER_ROUND;
+}
+| t_property_distance_unit_math3 T_MODIFIER_FLOOR t_property_distance_unit_math2 {
+    $$ = g_slice_new0(RofiDistanceUnit);
+    $$->left    = $1;
+    $$->right   = $3;
+    $$->modtype = ROFI_DISTANCE_MODIFIER_FLOOR;
+}
+| t_property_distance_unit_math3 T_MODIFIER_CEIL t_property_distance_unit_math2 {
+    $$ = g_slice_new0(RofiDistanceUnit);
+    $$->left    = $1;
+    $$->right   = $3;
+    $$->modtype = ROFI_DISTANCE_MODIFIER_CEIL;
 }
 | t_property_distance_unit_math2  {
     $$ = $1;

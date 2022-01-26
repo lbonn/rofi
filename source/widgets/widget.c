@@ -31,30 +31,15 @@
 #include <glib.h>
 #include <math.h>
 
-/** Default padding. */
-#define WIDGET_DEFAULT_PADDING 0
-/** macro for initializing the padding struction. */
-#define WIDGET_PADDING_INIT                                                    \
-  {                                                                            \
-    {WIDGET_DEFAULT_PADDING, ROFI_PU_PX, ROFI_DISTANCE_MODIFIER_NONE, NULL,    \
-     NULL},                                                                    \
-        ROFI_HL_SOLID                                                          \
-  }
-
 void widget_init(widget *wid, widget *parent, WidgetType type,
                  const char *name) {
   wid->type = type;
   wid->parent = parent;
   wid->name = g_strdup(name);
-  wid->def_padding = (RofiPadding){WIDGET_PADDING_INIT, WIDGET_PADDING_INIT,
-                                   WIDGET_PADDING_INIT, WIDGET_PADDING_INIT};
-  wid->def_border = (RofiPadding){WIDGET_PADDING_INIT, WIDGET_PADDING_INIT,
-                                  WIDGET_PADDING_INIT, WIDGET_PADDING_INIT};
-  wid->def_border_radius =
-      (RofiPadding){WIDGET_PADDING_INIT, WIDGET_PADDING_INIT,
-                    WIDGET_PADDING_INIT, WIDGET_PADDING_INIT};
-  wid->def_margin = (RofiPadding){WIDGET_PADDING_INIT, WIDGET_PADDING_INIT,
-                                  WIDGET_PADDING_INIT, WIDGET_PADDING_INIT};
+  wid->def_padding = WIDGET_PADDING_INIT;
+  wid->def_border = WIDGET_PADDING_INIT;
+  wid->def_border_radius = WIDGET_PADDING_INIT;
+  wid->def_margin = WIDGET_PADDING_INIT;
 
   wid->padding = rofi_theme_get_padding(wid, "padding", wid->def_padding);
   wid->border = rofi_theme_get_padding(wid, "border", wid->def_border);
@@ -126,13 +111,6 @@ void widget_set_type(widget *widget, WidgetType type) {
     return;
   }
   widget->type = type;
-}
-
-WidgetType widget_type(widget *widget) {
-  if (widget == NULL) {
-    return WIDGET_TYPE_UNKNOWN;
-  }
-  return widget->type;
 }
 
 gboolean widget_enabled(widget *widget) {
@@ -548,8 +526,8 @@ widget *widget_find_mouse_target(widget *wid, WidgetType type, gint x, gint y) {
   return NULL;
 }
 
-WidgetTriggerActionResult widget_check_action(widget *wid, guint action,
-                                                gint x, gint y) {
+WidgetTriggerActionResult widget_check_action(widget *wid, guint action, gint x,
+                                              gint y) {
   if (wid == NULL) {
     return FALSE;
   }

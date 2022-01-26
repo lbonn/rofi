@@ -47,16 +47,28 @@
 #include "widgets/textbox.h"
 #include <gio/gio.h>
 
+GList *parsed_config_files = NULL;
+
+void rofi_theme_free_parsed_files(void) {
+  g_list_free_full(parsed_config_files, g_free);
+  parsed_config_files = NULL;
+}
+
+void rofi_theme_print_parsed_files(gboolean is_term) {
+  printf("\nParsed files:\n");
+  for (GList *iter = g_list_first(parsed_config_files); iter != NULL;
+       iter = g_list_next(iter)) {
+    printf("\t\u2022 %s%s%s\n", is_term ? color_bold : "",
+           (const char *)(iter->data), is_term ? color_reset : "");
+  }
+  printf("\n");
+}
+
 void yyerror(YYLTYPE *yylloc, const char *, const char *);
 static gboolean distance_compare(RofiDistance d, RofiDistance e) {
   // TODO UPDATE
   return d.base.type == e.base.type && d.base.distance == e.base.distance &&
          d.style == e.style;
-}
-
-static gpointer rofi_g_list_strdup(gconstpointer data,
-                                   G_GNUC_UNUSED gpointer user_data) {
-  return g_strdup(data);
 }
 
 ThemeWidget *rofi_theme_find_or_create_name(ThemeWidget *base,
@@ -118,8 +130,8 @@ Property *rofi_theme_property_copy(const Property *p) {
     retv->value.s = g_strdup(p->value.s);
     break;
   case P_LIST:
-    retv->value.list =
-        g_list_copy_deep(p->value.list, rofi_g_list_strdup, NULL);
+    retv->value.list = g_list_copy_deep(
+        p->value.list, (GCopyFunc)rofi_theme_property_copy, NULL);
     break;
   case P_LINK:
     retv->value.link.name = g_strdup(p->value.link.name);
@@ -188,7 +200,7 @@ void rofi_theme_property_free(Property *p) {
   if (p->type == P_STRING) {
     g_free(p->value.s);
   } else if (p->type == P_LIST) {
-    g_list_free_full(p->value.list, g_free);
+    g_list_free_full(p->value.list, (GDestroyNotify)rofi_theme_property_free);
     p->value.list = 0;
   } else if (p->type == P_LINK) {
     g_free(p->value.link.name);
@@ -267,6 +279,12 @@ static void rofi_theme_print_distance_unit(RofiDistanceUnit *unit) {
     fputs(" min ", stdout);
   } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_MAX) {
     fputs(" max ", stdout);
+  } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_ROUND) {
+    fputs(" round ", stdout);
+  } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_FLOOR) {
+    fputs(" floor ", stdout);
+  } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_CEIL) {
+    fputs(" ceil ", stdout);
   }
   if (unit->right) {
     rofi_theme_print_distance_unit(unit->right);
@@ -339,7 +357,7 @@ static void int_rofi_theme_print_property(Property *p) {
   case P_LIST:
     printf("[ ");
     for (GList *iter = p->value.list; iter != NULL; iter = g_list_next(iter)) {
-      printf("%s", (char *)(iter->data));
+      int_rofi_theme_print_property((Property *)iter->data);
       if (iter->next != NULL) {
         printf(",");
       }
@@ -1190,7 +1208,7 @@ RofiPadding rofi_theme_get_padding(const widget *widget, const char *property,
 
 static GList *rofi_theme_get_list_inside(Property *p, const widget *widget,
                                          const char *property,
-                                         const char *defaults) {
+                                         PropertyType child_type) {
   if (p) {
     if (p->type == P_INHERIT) {
       if (widget->parent) {
@@ -1199,28 +1217,58 @@ static GList *rofi_theme_get_list_inside(Property *p, const widget *widget,
         Property *pv =
             rofi_theme_find_property(parent, P_LIST, property, FALSE);
         return rofi_theme_get_list_inside(pv, widget->parent, property,
-                                          defaults);
+                                          child_type);
       }
     } else if (p->type == P_LIST) {
-      return g_list_copy_deep(p->value.list, rofi_g_list_strdup, NULL);
+      return p->value.list;
     }
-  }
-  char **r = defaults ? g_strsplit(defaults, ",", 0) : NULL;
-  if (r) {
-    GList *l = NULL;
-    for (int i = 0; r[i] != NULL; i++) {
-      l = g_list_append(l, r[i]);
-    }
-    g_free(r);
-    return l;
   }
   return NULL;
 }
-GList *rofi_theme_get_list(const widget *widget, const char *property,
-                           const char *defaults) {
-  ThemeWidget *wid2 = rofi_theme_find_widget(widget->name, widget->state, TRUE);
-  Property *p = rofi_theme_find_property(wid2, P_LIST, property, TRUE);
-  return rofi_theme_get_list_inside(p, widget, property, defaults);
+GList *rofi_theme_get_list_distance(const widget *widget,
+                                    const char *property) {
+  ThemeWidget *wid2 =
+      rofi_theme_find_widget(widget->name, widget->state, FALSE);
+  Property *p = rofi_theme_find_property(wid2, P_LIST, property, FALSE);
+  GList *list = rofi_theme_get_list_inside(p, widget, property, P_PADDING);
+  GList *retv = NULL;
+  for (GList *iter = g_list_first(list); iter != NULL;
+       iter = g_list_next(iter)) {
+    Property *prop = (Property *)(iter->data);
+    if (prop->type == P_PADDING) {
+      RofiDistance *p = g_new0(RofiDistance, 1);
+      *p = prop->value.padding.left;
+      retv = g_list_append(retv, p);
+    } else if (prop->type == P_INTEGER) {
+      RofiDistance *p = g_new0(RofiDistance, 1);
+      RofiDistance d =
+          (RofiDistance){.base = {prop->value.i, ROFI_PU_PX,
+                                  ROFI_DISTANCE_MODIFIER_NONE, NULL, NULL},
+                         .style = ROFI_HL_SOLID};
+      *p = d;
+      retv = g_list_append(retv, p);
+    } else {
+      g_warning("Invalid type detected in list.");
+    }
+  }
+  return retv;
+}
+GList *rofi_theme_get_list_strings(const widget *widget, const char *property) {
+  ThemeWidget *wid2 =
+      rofi_theme_find_widget(widget->name, widget->state, FALSE);
+  Property *p = rofi_theme_find_property(wid2, P_LIST, property, FALSE);
+  GList *list = rofi_theme_get_list_inside(p, widget, property, P_STRING);
+  GList *retv = NULL;
+  for (GList *iter = g_list_first(list); iter != NULL;
+       iter = g_list_next(iter)) {
+    Property *prop = (Property *)(iter->data);
+    if (prop->type == P_STRING) {
+      retv = g_list_append(retv, g_strdup(prop->value.s));
+    } else {
+      g_warning("Invalid type detected in list.");
+    }
+  }
+  return retv;
 }
 
 static RofiHighlightColorStyle
@@ -1248,9 +1296,9 @@ rofi_theme_get_highlight_inside(Property *p, widget *widget,
   } else {
     ThemeWidget *wid =
         rofi_theme_find_widget(widget->name, widget->state, FALSE);
-    Property *p = rofi_theme_find_property(wid, P_COLOR, property, FALSE);
-    if (p != NULL) {
-      return rofi_theme_get_highlight_inside(p, widget, property, th);
+    Property *p2 = rofi_theme_find_property(wid, P_COLOR, property, FALSE);
+    if (p2 != NULL) {
+      return rofi_theme_get_highlight_inside(p2, widget, property, th);
     }
     return th;
   }
@@ -1332,6 +1380,21 @@ static int distance_unit_get_pixel(RofiDistanceUnit *unit,
     int b = distance_unit_get_pixel(unit->right, ori);
     return MAX(a, b);
   }
+  case ROFI_DISTANCE_MODIFIER_ROUND: {
+    double a = (double)distance_unit_get_pixel(unit->left, ori);
+    double b = (double)distance_unit_get_pixel(unit->right, ori);
+    return (int)(round(a / b) * b);
+  }
+  case ROFI_DISTANCE_MODIFIER_CEIL: {
+    double a = (double)distance_unit_get_pixel(unit->left, ori);
+    double b = (double)distance_unit_get_pixel(unit->right, ori);
+    return (int)(ceil(a / b) * b);
+  }
+  case ROFI_DISTANCE_MODIFIER_FLOOR: {
+    double a = (double)distance_unit_get_pixel(unit->left, ori);
+    double b = (double)distance_unit_get_pixel(unit->right, ori);
+    return (int)(floor(a / b) * b);
+  }
   default:
     break;
   }
@@ -1351,16 +1414,6 @@ void distance_get_linestyle(RofiDistance d, cairo_t *draw) {
   }
 }
 
-gboolean rofi_theme_is_empty(void) {
-  if (rofi_theme == NULL) {
-    return TRUE;
-  }
-  if (rofi_theme->properties == NULL && rofi_theme->num_widgets == 0) {
-    return TRUE;
-  }
-  return FALSE;
-}
-
 char *rofi_theme_parse_prepare_file(const char *file, const char *parent_file) {
   char *filename = rofi_expand_path(file);
   // If no absolute path specified, expand it.
@@ -1372,7 +1425,7 @@ char *rofi_theme_parse_prepare_file(const char *file, const char *parent_file) {
     g_free(basedir);
   }
   GFile *gf = g_file_new_for_path(filename);
-  g_free(filename);
+  parsed_config_files = g_list_append(parsed_config_files, filename);
   filename = g_file_get_path(gf);
   g_object_unref(gf);
 
