@@ -111,8 +111,7 @@ header_conf.set('GLIB_VERSION_MIN_REQUIRED', '(G_ENCODE_VERSION(@0@,@1@))'.forma
 header_conf.set('GLIB_VERSION_MAX_ALLOWED', '(G_ENCODE_VERSION(@0@,@1@))'.format(glib_min_major, glib_min_minor))
 
 header_conf.set('ENABLE_DRUN', get_option('drun'))
-# Window mode is not supported in the Wayland backend yet.
-header_conf.set('WINDOW_MODE', get_option('window') and xcb_enabled)
+header_conf.set('WINDOW_MODE', get_option('window'))
 
 header_conf.set('ENABLE_WAYLAND', wayland_enabled)
 header_conf.set('ENABLE_XCB', xcb_enabled)
@@ -264,6 +263,7 @@ if wayland_enabled
     protocols = files(
         wayland_sys_protocols_dir + '/stable/xdg-shell/xdg-shell.xml',
         wayland_sys_protocols_dir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
+        'protocols/wlr-foreign-toplevel-management-unstable-v1.xml',
         'protocols/wlr-layer-shell-unstable-v1.xml',
     )
     proto_srcs = []
@@ -286,8 +286,10 @@ if wayland_enabled
     rofi_sources += proto_srcs
     rofi_sources += proto_headers
     rofi_sources += files(
+        'source/modes/wayland-window.c',
         'source/wayland/view.c',
         'source/wayland/display.c',
+        'include/modes/wayland-window.h',
         'include/wayland-internal.h',
     )
 endif

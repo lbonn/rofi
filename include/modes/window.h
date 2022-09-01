@@ -36,12 +36,12 @@
  *
  * @{
  */
-#ifdef WINDOW_MODE
+#if defined(WINDOW_MODE) && defined(ENABLE_XCB)
 
 extern Mode window_mode;
 extern Mode window_mode_cd;
 
 void window_client_handle_signal(xcb_window_t win, gboolean create);
-#endif // WINDOW_MODE
+#endif // defined(WINDOW_MODE) && defined(ENABLE_XCB)
 /** @}*/
 #endif // ROFI_MODE_WINDOW_H

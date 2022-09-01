@@ -582,11 +582,18 @@ static void rofi_collectmodes_dir(const char *base_dir) {
  */
 static void rofi_collect_modes(void) {
 #ifdef WINDOW_MODE
+#ifdef ENABLE_XCB
   if (config.backend == DISPLAY_XCB) {
     rofi_collectmodes_add(&window_mode);
     rofi_collectmodes_add(&window_mode_cd);
   }
 #endif
+#ifdef ENABLE_WAYLAND
+  if (config.backend == DISPLAY_WAYLAND) {
+    rofi_collectmodes_add(&wayland_window_mode);
+  }
+#endif
+#endif // WINDOW_MODE
   rofi_collectmodes_add(&run_mode);
   rofi_collectmodes_add(&ssh_mode);
 #ifdef ENABLE_DRUN
