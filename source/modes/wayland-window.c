@@ -59,6 +59,9 @@ typedef struct _WaylandWindowModePrivateData {
 
   /* initial rendering complete, updates allowed */
   gboolean visible;
+  glong title_len;
+  glong app_id_len;
+  GRegex *window_regex;
 } WaylandWindowModePrivateData;
 
 enum ForeignToplevelState {
@@ -76,8 +79,11 @@ enum ForeignToplevelState {
 typedef struct {
   struct zwlr_foreign_toplevel_handle_v1 *handle;
   WaylandWindowModePrivateData *view;
+
   gchar *app_id;
+  glong app_id_len;
   gchar *title;
+  glong title_len;
   int state;
 
   unsigned int cached_icon_uid;
@@ -93,6 +99,30 @@ static void foreign_toplevel_handle_free(ForeignToplevelHandle *self) {
   g_free(self->title);
   g_free(self->app_id);
   g_free(self);
+}
+
+static void toplevels_list_update_max_len(gpointer data, gpointer user_data) {
+  WaylandWindowModePrivateData *pd = (WaylandWindowModePrivateData *)user_data;
+  ForeignToplevelHandle *entry = (ForeignToplevelHandle *)data;
+
+  pd->title_len = MAX(entry->title_len, pd->title_len);
+  pd->app_id_len = MAX(entry->app_id_len, pd->app_id_len);
+}
+
+/* Update column alignment and schedule reload */
+static void wayland_window_update_toplevel(ForeignToplevelHandle *toplevel) {
+  WaylandWindowModePrivateData *pd = toplevel->view;
+
+  if (!pd->visible) {
+    /* initial fetch, just add the current item */
+    toplevels_list_update_max_len(toplevel, pd);
+  } else {
+    /* async update, recalculate from scratch */
+    pd->title_len = 0;
+    pd->app_id_len = 0;
+    g_list_foreach(pd->toplevels, toplevels_list_update_max_len, pd);
+    rofi_view_reload();
+  }
 }
 
 /* requests */
@@ -116,6 +146,7 @@ static void foreign_toplevel_handle_title(
     g_free(self->title);
   }
   self->title = g_strdup(title);
+  self->title_len = g_utf8_strlen(self->title, -1);
 }
 
 static void foreign_toplevel_handle_app_id(
@@ -126,6 +157,7 @@ static void foreign_toplevel_handle_app_id(
     g_free(self->app_id);
   }
   self->app_id = g_strdup(app_id);
+  self->app_id_len = g_utf8_strlen(self->app_id, -1);
 }
 
 static void foreign_toplevel_handle_output_enter(
@@ -159,9 +191,7 @@ static void foreign_toplevel_handle_done(
   g_debug("window %p id=%s title=%s state=%d\n", (void *)self, self->app_id,
           self->title, self->state);
 
-  if (self->view->visible) {
-    rofi_view_reload();
-  }
+  wayland_window_update_toplevel(self);
 }
 
 static void foreign_toplevel_handle_closed(
@@ -171,9 +201,7 @@ static void foreign_toplevel_handle_closed(
   /* the handle is inert and will receive no further events */
   self->state = TOPLEVEL_STATE_CLOSED;
   self->view->toplevels = g_list_remove(self->view->toplevels, self);
-  if (self->view->visible) {
-    rofi_view_reload();
-  }
+  wayland_window_update_toplevel(self);
   foreign_toplevel_handle_free(self);
 }
 
@@ -253,6 +281,8 @@ static void get_wayland_window(Mode *sw) {
   WaylandWindowModePrivateData *pd =
       (WaylandWindowModePrivateData *)mode_get_private_data(sw);
 
+  pd->window_regex = g_regex_new("{[-\\w]+(:-?[0-9]+)?}", 0, 0, NULL);
+
   pd->wayland = wayland;
 
   pd->registry = wl_display_get_registry(wayland->display);
@@ -293,6 +323,10 @@ static void wayland_window_private_free(WaylandWindowModePrivateData *pd) {
     zwlr_foreign_toplevel_manager_v1_stop(pd->manager);
     pd->manager = NULL;
     wl_display_roundtrip(pd->wayland->display);
+  }
+
+  if (pd->window_regex) {
+    g_regex_unref(pd->window_regex);
   }
 
   g_free(pd);
@@ -377,6 +411,79 @@ static int wayland_window_token_match(const Mode *sw, rofi_int_matcher **tokens,
   return helper_token_match(tokens, toplevel->title);
 }
 
+static void helper_eval_add_str(GString *str, const char *input, int len,
+                                int max_len, int nc) {
+  // g_utf8 does not work with NULL string.
+  const char *input_nn = input ? input : "";
+  // Both len and max_len are in characters, not bytes.
+  int spaces = 0;
+  if (len == 0) {
+    spaces = MAX(0, max_len - nc);
+    g_string_append(str, input_nn);
+  } else {
+    if (nc > len) {
+      int bl = g_utf8_offset_to_pointer(input_nn, len) - input_nn;
+      char *tmp = g_markup_escape_text(input_nn, bl);
+      g_string_append(str, tmp);
+      g_free(tmp);
+    } else {
+      spaces = len - nc;
+      char *tmp = g_markup_escape_text(input_nn, -1);
+      g_string_append(str, tmp);
+      g_free(tmp);
+    }
+  }
+  while (spaces--) {
+    g_string_append_c(str, ' ');
+  }
+}
+
+struct arg {
+  const WaylandWindowModePrivateData *pd;
+  ForeignToplevelHandle *toplevel;
+};
+
+static gboolean helper_eval_cb(const GMatchInfo *info, GString *str,
+                               gpointer data) {
+  struct arg *d = (struct arg *)data;
+  gchar *match;
+  // Get the match
+  match = g_match_info_fetch(info, 0);
+  if (match != NULL) {
+    int l = 0;
+    if (match[2] == ':') {
+      l = (int)g_ascii_strtoll(&match[3], NULL, 10);
+      if (l < 0) {
+        l = 0;
+      }
+    }
+    /* Most of the arguments are not supported on wayland */
+    switch (match[1]) {
+    case 't': /* title */
+      helper_eval_add_str(str, d->toplevel->title, l, d->pd->title_len,
+                          d->toplevel->title_len);
+      break;
+    case 'a': /* app_id */
+    case 'c': /* class */
+      helper_eval_add_str(str, d->toplevel->app_id, l, d->pd->app_id_len,
+                          d->toplevel->app_id_len);
+      break;
+    }
+
+    g_free(match);
+  }
+  return FALSE;
+}
+
+static char *_generate_display_string(const WaylandWindowModePrivateData *pd,
+                                      ForeignToplevelHandle *toplevel) {
+
+  struct arg d = {pd, toplevel};
+  char *res = g_regex_replace_eval(pd->window_regex, config.window_format, -1,
+                                   0, 0, helper_eval_cb, &d, NULL);
+  return g_strchomp(res);
+}
+
 static char *_get_display_value(const Mode *sw, unsigned int selected_line,
                                 G_GNUC_UNUSED int *state,
                                 G_GNUC_UNUSED GList **attr_list,
@@ -386,23 +493,19 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
 
   g_return_val_if_fail(pd != NULL, NULL);
 
-  if (!get_entry) {
-    return NULL;
-  }
-
   ForeignToplevelHandle *toplevel =
       (ForeignToplevelHandle *)g_list_nth_data(pd->toplevels, selected_line);
 
-  if (toplevel == NULL || toplevel->title == NULL ||
-      toplevel->state & TOPLEVEL_STATE_CLOSED) {
-    return g_strdup("n/a");
+  if (toplevel == NULL || toplevel->state & TOPLEVEL_STATE_CLOSED) {
+    return get_entry ? g_strdup("Window has vanished") : NULL;
   }
 
+  /* This may not work because layer-surface holds focus */
   if (toplevel->state & TOPLEVEL_STATE_ACTIVATED) {
     *state |= ACTIVE;
   }
 
-  return g_strdup(toplevel->title);
+  return get_entry ? _generate_display_string(pd, toplevel) : NULL;
 }
 
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
