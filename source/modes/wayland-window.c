@@ -51,6 +51,12 @@
 
 #define WLR_FOREIGN_TOPLEVEL_VERSION 3
 
+enum WaylandWindowMatchingFields {
+  WW_MATCH_FIELD_TITLE = 1 << 0,
+  WW_MATCH_FIELD_APP_ID = 1 << 1,
+  WW_MATCH_FIELD_ALL = ~0,
+};
+
 typedef struct _WaylandWindowModePrivateData {
   wayland_stuff *wayland;
   struct wl_registry *registry;
@@ -59,6 +65,7 @@ typedef struct _WaylandWindowModePrivateData {
 
   /* initial rendering complete, updates allowed */
   gboolean visible;
+  int match_fields; /* bitmask of WaylandWindowMatchingFields */
   glong title_len;
   glong app_id_len;
   GRegex *window_regex;
@@ -277,10 +284,41 @@ static void handle_global_remove(G_GNUC_UNUSED void *data,
 static struct wl_registry_listener registry_listener = {
     .global = &handle_global, .global_remove = &handle_global_remove};
 
+static int wayland_window_mode_parse_fields() {
+  int result = 0;
+  char *savept = NULL;
+  // Make a copy, as strtok will modify it.
+  char *switcher_str = g_strdup(config.window_match_fields);
+
+  const char *const sep = ",#";
+  for (char *token = strtok_r(switcher_str, sep, &savept); token != NULL;
+       token = strtok_r(NULL, sep, &savept)) {
+    if (g_strcmp0(token, "all") == 0) {
+      result |= WW_MATCH_FIELD_ALL;
+
+    } else if (g_strcmp0(token, "title") == 0) {
+      result |= WW_MATCH_FIELD_TITLE;
+
+    } else if (g_strcmp0(token, "class") == 0 ||
+               g_strcmp0(token, "app-id") == 0) {
+      result |= WW_MATCH_FIELD_APP_ID;
+
+    } else {
+      g_warning("Unsupported window field name :%s. "
+                "Wayland window switcher supports only 'title' and 'app-id' "
+                "('class') fields",
+                token);
+    }
+  }
+  g_free(switcher_str);
+  return result;
+}
+
 static void get_wayland_window(Mode *sw) {
   WaylandWindowModePrivateData *pd =
       (WaylandWindowModePrivateData *)mode_get_private_data(sw);
 
+  pd->match_fields = wayland_window_mode_parse_fields();
   pd->window_regex = g_regex_new("{[-\\w]+(:-?[0-9]+)?}", 0, 0, NULL);
 
   pd->wayland = wayland;
@@ -401,14 +439,39 @@ static int wayland_window_token_match(const Mode *sw, rofi_int_matcher **tokens,
                                       unsigned int index) {
   WaylandWindowModePrivateData *pd =
       (WaylandWindowModePrivateData *)mode_get_private_data(sw);
-
   ForeignToplevelHandle *toplevel =
       (ForeignToplevelHandle *)g_list_nth_data(pd->toplevels, index);
 
   g_return_val_if_fail(toplevel != NULL, 0);
 
-  // Call default matching function.
-  return helper_token_match(tokens, toplevel->title);
+  int match = TRUE;
+
+  if (tokens) {
+    for (int j = 0; match && tokens[j] != NULL; j++) {
+      int test = 0;
+      /* See comment in window.c;
+       * for each token we want to match at least one field.
+       */
+      rofi_int_matcher *ftokens[2] = {tokens[j], NULL};
+
+      if ((pd->match_fields & WW_MATCH_FIELD_TITLE) &&
+          toplevel->title != NULL && toplevel->title[0] != '\0') {
+        test = helper_token_match(ftokens, toplevel->title);
+      }
+
+      if (test == tokens[j]->invert &&
+          (pd->match_fields & WW_MATCH_FIELD_APP_ID) &&
+          toplevel->app_id != NULL && toplevel->app_id[0] != '\0') {
+        test = helper_token_match(ftokens, toplevel->app_id);
+      }
+
+      if (test == 0) {
+        match = 0;
+      }
+    }
+  }
+
+  return match;
 }
 
 static void helper_eval_add_str(GString *str, const char *input, int len,

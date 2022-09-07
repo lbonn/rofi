@@ -625,9 +625,27 @@ The different fields are:
 .IP \(bu 2
 \fBdesktop\fP: window's current desktop
 .IP \(bu 2
-\fBall\fP: all the aboveDefault: \fIall\fP
+\fBall\fP: all the above
 
 .RE
+
+.PP
+For Wayland, the list of accepted fields is different:
+
+.RS
+.IP \(bu 2
+\fBtitle\fP: window's title
+.IP \(bu 2
+\fBapp-id\fP: Wayland Application ID or XWayland window's class
+.IP \(bu 2
+\fBclass\fP: same as app-id
+.IP \(bu 2
+\fBall\fP: all of the above
+
+.RE
+
+.PP
+Default: \fIall\fP
 
 .PP
 \fB\fC-matching-negate-char\fR \fIchar\fP

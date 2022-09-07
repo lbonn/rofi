@@ -373,7 +373,14 @@ The different fields are:
 * **desktop**: window's current desktop
 * **all**: all the above
 
-    Default: *all*
+For Wayland, the list of accepted fields is different:
+
+* **title**: window's title
+* **app-id**: Wayland Application ID or XWayland window's class
+* **class**: same as app-id
+* **all**: all of the above
+
+   Default: *all*
 
 `-matching-negate-char` *char*
 
