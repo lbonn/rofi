@@ -202,7 +202,7 @@ https://aur.archlinux.org/packages/rofi-lbonn-wayland-git/
 
 ### Fedora
 
-https://copr.fedorainfracloud.org/coprs/alebastr/sway-extras/
+https://packages.fedoraproject.org/pkgs/rofi-wayland/rofi-wayland/
 
 ### NixOS
 
