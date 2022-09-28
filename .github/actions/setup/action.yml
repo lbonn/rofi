@@ -16,6 +16,7 @@ runs:
           doxygen \
           fluxbox \
           gdb \
+          go-md2man \
           graphviz \
           jq \
           lcov \
