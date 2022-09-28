@@ -13,5 +13,4 @@ doc/old-theme-convert-output.rasi export-ignore
 doc/test_xr.txt export-ignore
 doc/create_screenshot.sh export-ignore
 doc/README.md export-ignore
-doc/meson_build_manpages.sh export-ignore
 script/*.jpg export-ignore
