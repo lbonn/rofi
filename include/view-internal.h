@@ -199,7 +199,10 @@ struct _rofi_view_cache_state {
   /** timeout for reloading */
   guint refilter_timeout;
   guint refilter_timeout_count;
-  /** User timeout */
+
+  double max_refilter_time;
+  gboolean delayed_mode;
+  /** timeout handling */
   guint user_timeout;
 };
 extern struct _rofi_view_cache_state CacheState;

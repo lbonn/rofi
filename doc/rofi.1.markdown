@@ -143,6 +143,11 @@ Dump the current active theme, in rasi format, to stdout and exit.
 
 Try to parse the file and return 0 when successful, non-zero when failed.
 
+`-list-keybindings`
+
+List all known keybindings without trying to parse them. This can be used to
+look for duplicate bindings.
+
 `-threads` *num*
 
 Specify the number of threads **rofi** should use:
@@ -275,9 +280,9 @@ Make rofi steal focus on launch and restore close to window that held it when la
 
 `-refilter-timeout-limit`
 
-The limit of elements that is used to switch from instant to delayed filter mode.
+The time (in ms) boundary filter may take before switch from instant to delayed filter mode.
 
-  Default: 8192
+  Default: 300
 
 A fallback icon can be specified for each mode:
 
@@ -574,7 +579,7 @@ Format what is being displayed for windows.
  * **r**: role
  * **c**: class
 
-*len*: maximum field length (0 for auto-size). If length and window *width* are negative, field length is *width - len*.  
+*len*: maximum field length (0 for auto-size). If length is negative, the entry will be unchanged.
 If length is positive, the entry will be truncated or padded to fill that length.
 
 

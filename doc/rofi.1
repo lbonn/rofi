@@ -221,6 +221,13 @@ Dump the current active theme, in rasi format, to stdout and exit.
 Try to parse the file and return 0 when successful, non-zero when failed.
 
 .PP
+\fB\fC-list-keybindings\fR
+
+.PP
+List all known keybindings without trying to parse them. This can be used to
+look for duplicate bindings.
+
+.PP
 \fB\fC-threads\fR \fInum\fP
 
 .PP
@@ -456,10 +463,10 @@ Make rofi steal focus on launch and restore close to window that held it when la
 \fB\fC-refilter-timeout-limit\fR
 
 .PP
-The limit of elements that is used to switch from instant to delayed filter mode.
+The time (in ms) boundary filter may take before switch from instant to delayed filter mode.
 
 .PP
-Default: 8192
+Default: 300
 
 .PP
 A fallback icon can be specified for each mode:
@@ -959,7 +966,7 @@ Format what is being displayed for windows.
 .RE
 
 .PP
-\fIlen\fP: maximum field length (0 for auto-size). If length and window \fIwidth\fP are negative, field length is \fIwidth - len\fP\&.
+\fIlen\fP: maximum field length (0 for auto-size). If length is negative, the entry will be unchanged.
 .br
 If length is positive, the entry will be truncated or padded to fill that length.
 

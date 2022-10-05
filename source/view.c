@@ -78,6 +78,8 @@ struct _rofi_view_cache_state CacheState = {
     .views = G_QUEUE_INIT,
     .refilter_timeout = 0,
     .refilter_timeout_count = 0,
+    .max_refilter_time = 0.0,
+    .delayed_mode = FALSE,
     .user_timeout = 0,
 };
 
@@ -553,6 +555,7 @@ static gboolean rofi_view_refilter_real(RofiViewState *state) {
   if (state->sw == NULL) {
     return G_SOURCE_REMOVE;
   }
+  GTimer *timer = g_timer_new();
   TICK_N("Filter start");
   if (state->reload) {
     _rofi_view_reload_row(state);
@@ -631,6 +634,10 @@ static gboolean rofi_view_refilter_real(RofiViewState *state) {
     // Cleanup + bookkeeping.
     state->filtered_lines = j;
     g_free(pattern);
+
+    double elapsed = g_timer_elapsed(timer, NULL);
+
+    CacheState.max_refilter_time = elapsed;
   } else {
     listview_set_filtered(state->list_view, FALSE);
     for (unsigned int i = 0; i < state->num_lines; i++) {
@@ -673,6 +680,8 @@ static gboolean rofi_view_refilter_real(RofiViewState *state) {
   state->refilter = FALSE;
   TICK_N("Filter done");
   rofi_view_update(state, TRUE);
+
+  g_timer_destroy(timer);
   return G_SOURCE_REMOVE;
 }
 void rofi_view_refilter(RofiViewState *state) {
@@ -682,12 +691,26 @@ void rofi_view_refilter(RofiViewState *state) {
     g_source_remove(CacheState.refilter_timeout);
     CacheState.refilter_timeout = 0;
   }
-  if (state->num_lines > config.refilter_timeout_limit &&
-      CacheState.refilter_timeout_count < 25 && state->text &&
-      strlen(state->text->text) > 0) {
+  if (CacheState.max_refilter_time > (config.refilter_timeout_limit / 1000.0) &&
+      state->text && strlen(state->text->text) > 0 &&
+      CacheState.refilter_timeout_count < 25) {
+    if (CacheState.delayed_mode == FALSE) {
+      g_warning(
+          "Filtering took %f seconds ( %f ), switching to delayed filter\n",
+          CacheState.max_refilter_time, config.refilter_timeout_limit / 1000.0);
+      CacheState.delayed_mode = TRUE;
+    }
     CacheState.refilter_timeout =
         g_timeout_add(200, (GSourceFunc)rofi_view_refilter_real, state);
   } else {
+    if (CacheState.delayed_mode == TRUE && state->text &&
+        strlen(state->text->text) > 0 &&
+        CacheState.refilter_timeout_count < 25) {
+      g_warning(
+          "Filtering took %f seconds , switching back to instant filter\n",
+          CacheState.max_refilter_time);
+      CacheState.delayed_mode = FALSE;
+    }
     rofi_view_refilter_real(state);
   }
 }
@@ -758,6 +781,21 @@ static void rofi_view_trigger_global_action(KeyBindingAction action) {
     }
 #endif
     break;
+  case COPY_SECONDARY: {
+    char *data = NULL;
+    unsigned int selected = listview_get_selected(state->list_view);
+    if (selected < state->filtered_lines) {
+      data = mode_get_completion(state->sw, state->line_map[selected]);
+    } else if (state->text && state->text->text) {
+      data = g_strdup(state->text->text);
+    }
+    if (data) {
+      xcb_stuff_set_clipboard(data);
+      xcb_set_selection_owner(xcb->connection, CacheState.main_window,
+                              netatoms[CLIPBOARD], XCB_CURRENT_TIME);
+      xcb_flush(xcb->connection);
+    }
+  } break;
   case SCREENSHOT:
     rofi_capture_screenshot();
     break;
