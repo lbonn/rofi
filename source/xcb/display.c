@@ -3,7 +3,7 @@
  *
  * MIT/X11 License
  * Copyright © 2012 Sean Pringle <sean.pringle@gmail.com>
- * Copyright © 2013-2021 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -64,6 +64,9 @@
 #include "xcb.h"
 #include <libsn/sn.h>
 
+#include "mode.h"
+#include "modes/window.h"
+
 #include <rofi.h>
 
 /** Minimal randr preferred for running rofi (1.5) (Major version number) */
@@ -85,7 +88,8 @@ struct _xcb_stuff xcb_int = {.connection = NULL,
                              .screen_nbr = -1,
                              .sndisplay = NULL,
                              .sncontext = NULL,
-                             .monitors = NULL};
+                             .monitors = NULL,
+                             .clipboard = NULL};
 xcb_stuff *xcb = &xcb_int;
 
 /**
@@ -101,11 +105,17 @@ static xcb_visualtype_t *root_visual = NULL;
 xcb_atom_t netatoms[NUM_NETATOMS];
 const char *netatom_names[] = {EWMH_ATOMS(ATOM_CHAR)};
 
+/**
+ * Cached X11 cursors.
+ */
 xcb_cursor_t cursors[NUM_CURSORS] = {XCB_CURSOR_NONE, XCB_CURSOR_NONE,
                                      XCB_CURSOR_NONE};
 
+/** Mapping between theme name and system name for mouse cursor. */
 const struct {
+  /** Theme name */
   const char *css_name;
+  /** System name */
   const char *traditional_name;
 } cursor_names[] = {
     {"default", "left_ptr"}, {"pointer", "hand"}, {"text", "xterm"}};
@@ -419,6 +429,23 @@ static void x11_monitors_free(void) {
 }
 
 /**
+ * Quick function that tries to fix the size (for dpi calculation)
+ * when monitor is rotate. This assumes the density is kinda equal in both X/Y
+ * direction.
+ */
+static void x11_workarea_fix_rotation(workarea *w) {
+  double ratio_res = w->w / (double)w->h;
+  double ratio_size = w->mw / (double)w->mh;
+
+  if ((ratio_res < 1.0 && ratio_size > 1.0) ||
+      (ratio_res > 1.0 && ratio_size < 1.0)) {
+    // Oposite ratios, swap them.
+    int nh = w->mw;
+    w->mw = w->mh;
+    w->mh = nh;
+  }
+}
+/**
  * Create monitor based on output id
  */
 static workarea *x11_get_monitor_from_output(xcb_randr_output_t out) {
@@ -446,6 +473,7 @@ static workarea *x11_get_monitor_from_output(xcb_randr_output_t out) {
 
   retv->mw = op_reply->mm_width;
   retv->mh = op_reply->mm_height;
+  x11_workarea_fix_rotation(retv);
 
   char *tname = (char *)xcb_randr_get_output_info_name(op_reply);
   int tname_len = xcb_randr_get_output_info_name_length(op_reply);
@@ -496,6 +524,7 @@ x11_get_monitor_from_randr_monitor(xcb_randr_monitor_info_t *mon) {
   // Physical
   retv->mw = mon->width_in_millimeters;
   retv->mh = mon->height_in_millimeters;
+  x11_workarea_fix_rotation(retv);
 
   // Name
   retv->name =
@@ -739,6 +768,10 @@ static int monitor_get_dimension(int monitor_id, workarea *mon) {
 }
 // find the dimensions of the monitor displaying point x,y
 static void monitor_dimensions(int x, int y, workarea *mon) {
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return;
+  }
   memset(mon, 0, sizeof(workarea));
   mon->w = xcb->screen->width_in_pixels;
   mon->h = xcb->screen->height_in_pixels;
@@ -777,6 +810,10 @@ static int pointer_get(xcb_window_t root, int *x, int *y) {
   return FALSE;
 }
 static int monitor_active_from_winid(xcb_drawable_t id, workarea *mon) {
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return FALSE;
+  }
   xcb_window_t root = xcb->screen->root;
   xcb_get_geometry_cookie_t c = xcb_get_geometry(xcb->connection, id);
   xcb_get_geometry_reply_t *r =
@@ -806,6 +843,10 @@ static int monitor_active_from_id_focused(int mon_id, workarea *mon) {
   int retv = FALSE;
   xcb_window_t active_window;
   xcb_get_property_cookie_t awc;
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return retv;
+  }
   awc = xcb_ewmh_get_active_window(&xcb->ewmh, xcb->screen_nbr);
   if (!xcb_ewmh_get_active_window_reply(&xcb->ewmh, awc, &active_window,
                                         NULL)) {
@@ -854,7 +895,9 @@ static int monitor_active_from_id_focused(int mon_id, workarea *mon) {
       }
       g_debug("mon pos: %d %d %d-%d", mon->x, mon->y, mon->w, mon->h);
     } else if (mon_id == -4) {
+      g_debug("Find monitor at location: %d %d", t->dst_x, t->dst_y);
       monitor_dimensions(t->dst_x, t->dst_y, mon);
+      g_debug("Monitor found pos: %d %d %d-%d", mon->x, mon->y, mon->w, mon->h);
       retv = TRUE;
     }
     free(t);
@@ -869,6 +912,11 @@ static int monitor_active_from_id_focused(int mon_id, workarea *mon) {
 static int monitor_active_from_id(int mon_id, workarea *mon) {
   xcb_window_t root = xcb->screen->root;
   int x, y;
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return FALSE;
+  }
+  g_debug("Monitor id: %d", mon_id);
   // At mouse position.
   if (mon_id == -3) {
     if (pointer_get(root, &x, &y)) {
@@ -880,19 +928,27 @@ static int monitor_active_from_id(int mon_id, workarea *mon) {
   }
   // Focused monitor
   else if (mon_id == -1) {
+    g_debug("rofi on current monitor");
     // Get the current desktop.
     unsigned int current_desktop = 0;
     xcb_get_property_cookie_t gcdc;
     gcdc = xcb_ewmh_get_current_desktop(&xcb->ewmh, xcb->screen_nbr);
     if (xcb_ewmh_get_current_desktop_reply(&xcb->ewmh, gcdc, &current_desktop,
                                            NULL)) {
+      g_debug("Found current desktop: %u", current_desktop);
       xcb_get_property_cookie_t c =
           xcb_ewmh_get_desktop_viewport(&xcb->ewmh, xcb->screen_nbr);
       xcb_ewmh_get_desktop_viewport_reply_t vp;
       if (xcb_ewmh_get_desktop_viewport_reply(&xcb->ewmh, c, &vp, NULL)) {
+        g_debug("Found %d number of desktops", vp.desktop_viewport_len);
         if (current_desktop < vp.desktop_viewport_len) {
+          g_debug("Found viewport for desktop: %d %d",
+                  vp.desktop_viewport[current_desktop].x,
+                  vp.desktop_viewport[current_desktop].y);
           monitor_dimensions(vp.desktop_viewport[current_desktop].x,
                              vp.desktop_viewport[current_desktop].y, mon);
+          g_debug("Found monitor @: %d %d %dx%d", mon->x, mon->y, mon->w,
+                  mon->h);
           xcb_ewmh_get_desktop_viewport_reply_wipe(&vp);
           return TRUE;
         } else {
@@ -930,20 +986,39 @@ static int monitor_active_from_id(int mon_id, workarea *mon) {
 
 // determine which monitor holds the active window, or failing that the mouse
 // pointer
+gboolean mon_set = FALSE;
+workarea mon_cache = {
+    0,
+};
 static int xcb_display_monitor_active(workarea *mon) {
+  if (mon == NULL) {
+    g_error("%s: mon == NULL", __FUNCTION__);
+    return FALSE;
+  }
+  g_debug("Monitor active");
+  if (mon_set) {
+    *mon = mon_cache;
+    return TRUE;
+  }
   if (config.monitor != NULL) {
+    g_debug("Monitor lookup  by name : %s", config.monitor);
     for (workarea *iter = xcb->monitors; iter; iter = iter->next) {
       if (g_strcmp0(config.monitor, iter->name) == 0) {
         *mon = *iter;
+        mon_cache = *mon;
+        mon_set = TRUE;
         return TRUE;
       }
     }
   }
+  g_debug("Monitor lookup  by name failed: %s", config.monitor);
   // Grab primary.
   if (g_strcmp0(config.monitor, "primary") == 0) {
     for (workarea *iter = xcb->monitors; iter; iter = iter->next) {
       if (iter->primary) {
         *mon = *iter;
+        mon_cache = *mon;
+        mon_set = TRUE;
         return TRUE;
       }
     }
@@ -953,6 +1028,8 @@ static int xcb_display_monitor_active(workarea *mon) {
     xcb_drawable_t win = g_ascii_strtoll(config.monitor + 4, &end, 0);
     if (end != config.monitor) {
       if (monitor_active_from_winid(win, mon)) {
+        mon_cache = *mon;
+        mon_set = TRUE;
         return TRUE;
       }
     }
@@ -964,16 +1041,23 @@ static int xcb_display_monitor_active(workarea *mon) {
     if (end != config.monitor) {
       if (mon_id >= 0) {
         if (monitor_get_dimension(mon_id, mon)) {
+          mon_cache = *mon;
+          mon_set = TRUE;
           return TRUE;
         }
         g_warning("Failed to find selected monitor.");
       } else {
-        return monitor_active_from_id(mon_id, mon);
+        int val = monitor_active_from_id(mon_id, mon);
+        mon_cache = *mon;
+        mon_set = TRUE;
+        return val;
       }
     }
   }
   // Fallback.
   monitor_dimensions(0, 0, mon);
+  mon_cache = *mon;
+  mon_set = TRUE;
   return FALSE;
 }
 
@@ -1079,6 +1163,26 @@ static void main_loop_x11_event_handler_view(xcb_generic_event_t *event) {
     }
     break;
   }
+  case XCB_DESTROY_NOTIFY: {
+    xcb_window_t win = ((xcb_destroy_notify_event_t *)event)->window;
+    if (win != rofi_view_get_window()) {
+#ifdef WINDOW_MODE
+      window_client_handle_signal(win, FALSE);
+#endif
+    } else {
+      g_main_loop_quit(xcb->main_loop);
+    }
+    break;
+  }
+  case XCB_CREATE_NOTIFY: {
+    xcb_window_t win = ((xcb_create_notify_event_t *)event)->window;
+    if (win != rofi_view_get_window()) {
+#ifdef WINDOW_MODE
+      window_client_handle_signal(win, TRUE);
+#endif
+    }
+    break;
+  }
   case XCB_EXPOSE:
     rofi_view_frame_callback();
     break;
@@ -1113,6 +1217,52 @@ static void main_loop_x11_event_handler_view(xcb_generic_event_t *event) {
     }
     break;
   }
+  case XCB_SELECTION_CLEAR: {
+    g_debug("Selection Clear.");
+    xcb_stuff_set_clipboard(NULL);
+  } break;
+  case XCB_SELECTION_REQUEST: {
+    g_debug("Selection Request.");
+    xcb_selection_request_event_t *req = (xcb_selection_request_event_t *)event;
+    if (req->selection == netatoms[CLIPBOARD]) {
+      xcb_atom_t targets[2];
+      xcb_selection_notify_event_t selection_notify = {
+          .response_type = XCB_SELECTION_NOTIFY,
+          .sequence = 0,
+          .time = req->time,
+          .requestor = req->requestor,
+          .selection = req->selection,
+          .target = req->target,
+          .property = XCB_ATOM_NONE,
+      };
+      // If no clipboard, we return NONE.
+      if (xcb->clipboard) {
+        // Request for UTF-8
+        if (req->target == netatoms[UTF8_STRING]) {
+          g_debug("Selection Request UTF-8.");
+          xcb_change_property(xcb->connection, XCB_PROP_MODE_REPLACE,
+                              req->requestor, req->property,
+                              netatoms[UTF8_STRING], 8,
+                              strlen(xcb->clipboard) + 1, xcb->clipboard);
+          selection_notify.property = req->property;
+        } else if (req->target == netatoms[TARGETS]) {
+          g_debug("Selection Request Targets.");
+          // We currently only support UTF8 from clipboard. So indicate this.
+          targets[0] = netatoms[UTF8_STRING];
+          xcb_change_property(xcb->connection, XCB_PROP_MODE_REPLACE,
+                              req->requestor, req->property, XCB_ATOM_ATOM, 32,
+                              1, targets);
+          selection_notify.property = req->property;
+        }
+      }
+
+      xcb_send_event(xcb->connection,
+                     0, // propagate
+                     req->requestor, XCB_EVENT_MASK_NO_EVENT,
+                     (const char *)&selection_notify);
+      xcb_flush(xcb->connection);
+    }
+  } break;
   case XCB_BUTTON_RELEASE: {
     xcb_button_release_event_t *bre = (xcb_button_release_event_t *)event;
     NkBindingsMouseButton button;
@@ -1154,11 +1304,17 @@ static void main_loop_x11_event_handler_view(xcb_generic_event_t *event) {
     gchar *text;
 
     xcb->last_timestamp = xkpe->time;
-    text = nk_bindings_seat_handle_key_with_modmask(
-        xcb->bindings_seat, NULL, xkpe->state, xkpe->detail,
-        NK_BINDINGS_KEY_STATE_PRESS);
+    if (config.xserver_i300_workaround) {
+      text = nk_bindings_seat_handle_key_with_modmask(
+          xcb->bindings_seat, NULL, xkpe->state, xkpe->detail,
+          NK_BINDINGS_KEY_STATE_PRESS);
+    } else {
+      text = nk_bindings_seat_handle_key(xcb->bindings_seat, NULL, xkpe->detail,
+                                         NK_BINDINGS_KEY_STATE_PRESS);
+    }
     if (text != NULL) {
       rofi_view_handle_text(state, text);
+      g_free(text);
     }
     break;
   }
@@ -1183,11 +1339,12 @@ static gboolean main_loop_x11_event_handler(xcb_generic_event_t *ev,
       g_warning("The XCB connection to X server had a fatal error: %d", status);
       g_main_loop_quit(xcb->main_loop);
       return G_SOURCE_REMOVE;
-    } else {
-      g_warning("main_loop_x11_event_handler: ev == NULL, status == %d",
-                status);
-      return G_SOURCE_CONTINUE;
     }
+    // DD: it seems this handler often gets dispatched while the queue in GWater
+    // is empty. resulting in a NULL for ev. This seems not an error.
+    // g_warning("main_loop_x11_event_handler: ev == NULL, status == %d",
+    // status);
+    return G_SOURCE_CONTINUE;
   }
   uint8_t type = ev->response_type & ~0x80;
   if (type == xcb->xkb.first_event) {
@@ -1699,6 +1856,10 @@ void x11_set_cursor(xcb_window_t window, X11CursorType type) {
 
   xcb_change_window_attributes(xcb->connection, window, XCB_CW_CURSOR,
                                &(cursors[type]));
+}
+void xcb_stuff_set_clipboard(char *data) {
+  g_free(xcb->clipboard);
+  xcb->clipboard = data;
 }
 
 static void xcb_display_set_input_focus(guint w) {
