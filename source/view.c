@@ -790,10 +790,19 @@ static void rofi_view_trigger_global_action(KeyBindingAction action) {
       data = g_strdup(state->text->text);
     }
     if (data) {
-      xcb_stuff_set_clipboard(data);
-      xcb_set_selection_owner(xcb->connection, CacheState.main_window,
-                              netatoms[CLIPBOARD], XCB_CURRENT_TIME);
-      xcb_flush(xcb->connection);
+#ifdef ENABLE_XCB
+        if (config.backend == DISPLAY_XCB) {
+            xcb_stuff_set_clipboard(data);
+            xcb_set_selection_owner(xcb->connection, CacheState.main_window,
+                    netatoms[CLIPBOARD], XCB_CURRENT_TIME);
+            xcb_flush(xcb->connection);
+        }
+#endif
+#ifdef ENABLE_WAYLAND
+        if (config.backend == DISPLAY_WAYLAND) {
+            // TODO
+        }
+#endif
     }
   } break;
   case SCREENSHOT:
