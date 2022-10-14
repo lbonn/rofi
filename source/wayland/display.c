@@ -799,8 +799,18 @@ static gboolean clipboard_read_data(int fd, clipboard_read_callback callback) {
 static void data_offer_handle_offer(void *data, struct wl_data_offer *offer,
                                     const char *mime_type) {}
 
+static void data_offer_handle_source_actions(void *data,
+                       struct wl_data_offer *wl_data_offer,
+                       uint32_t source_actions) {}
+
+static void data_offer_handle_action(void *data,
+               struct wl_data_offer *wl_data_offer,
+               uint32_t dnd_action) {}
+
 static const struct wl_data_offer_listener data_offer_listener = {
     .offer = data_offer_handle_offer,
+    .source_actions = data_offer_handle_source_actions,
+    .action = data_offer_handle_action,
 };
 
 static void data_device_handle_data_offer(void *data,
