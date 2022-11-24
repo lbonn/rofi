@@ -586,30 +586,21 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
     return NULL;
   }
 
-  cairo_surface_t *icon = NULL;
-  gchar *transformed = NULL;
-
   if (toplevel->cached_icon_uid > 0 && toplevel->cached_icon_size == height) {
     return rofi_icon_fetcher_get(toplevel->cached_icon_uid);
   }
 
-  /** lookup icon */
+  /**
+   * Lookup icon by lowercase app_id.
+   * There's no API to request multiple names, so we do the same as XCB window
+   * mode and search for a lowercase WM_CLASS/app_id.
+   */
+  gchar *app_id_lower = g_utf8_strdown(toplevel->app_id, -1);
   toplevel->cached_icon_size = height;
-  toplevel->cached_icon_uid = rofi_icon_fetcher_query(toplevel->app_id, height);
-  icon = rofi_icon_fetcher_get(toplevel->cached_icon_uid);
-  if (icon) {
-    return icon;
-  }
+  toplevel->cached_icon_uid = rofi_icon_fetcher_query(app_id_lower, height);
+  g_free(app_id_lower);
 
-  /** lookup icon by lowercase app_id */
-  transformed = g_utf8_strdown(toplevel->app_id, strlen(toplevel->app_id));
-  toplevel->cached_icon_uid = rofi_icon_fetcher_query(transformed, height);
-  icon = rofi_icon_fetcher_get(toplevel->cached_icon_uid);
-  g_free(transformed);
-
-  /* TODO: find desktop file by app_id and get the Icon= value */
-
-  return icon;
+  return rofi_icon_fetcher_get(toplevel->cached_icon_uid);
 }
 
 #include "mode-private.h"
