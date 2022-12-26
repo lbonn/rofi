@@ -136,11 +136,12 @@ To force the use of the xcb backend (if enabled during build), the `-x11` option
 
 ## Differences with rofi (in wayland mode)
 
-  * native window selection mode when running under Wayland. Recommended solution: https://github.com/lbonn/i3-focus-last#menu-mode or https://sr.ht/~tsdh/swayr/
   * `-normal-window` flag in Wayland mode. Though it is also considered as a toy/deprecated feature in Upstream rofi
   * selecting which monitor to run rofi on in Wayland mode, rofi only shows up on the currently focused monitor
   * some window locations parameters work partially, `x-offset` and `y-offset` are only working from screen edges
   * some X11-specific options like `-dpi` or fake transparency
+
+Window switcher mode is now ready to use on compositors with support for wlr-foreign-toplevel-management.
 
 # Manpage
 
