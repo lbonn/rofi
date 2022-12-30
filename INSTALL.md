@@ -207,3 +207,11 @@ https://packages.fedoraproject.org/pkgs/rofi-wayland/rofi-wayland/
 ### NixOS
 
 rofi-wayland is integrated in nixpkgs master ([PR](https://github.com/NixOS/nixpkgs/pull/150169))
+
+## Gentoo
+rofi-wayland is currently avalible in the GURU. To enable it and install rofi-wayland:
+* eselect repository enable guru
+* emerge --sync guru
+* emerge --ask rofi-wayland
+Note that some features might not be compiled. These can be added by setting use flags. To list availible use flags:
+* equery uses rofi-wayland
