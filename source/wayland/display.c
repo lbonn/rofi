@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <linux/input-event-codes.h>
 #include <locale.h>
+#include <stdint.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -64,7 +65,17 @@ typedef struct {
   wayland_stuff *context;
   uint32_t global_name;
   struct wl_output *output;
-  int32_t scale;
+  gchar *name;
+  struct {
+    int32_t x;
+    int32_t y;
+    int32_t width;
+    int32_t height;
+    int32_t physical_width;  /* mm */
+    int32_t physical_height; /* mm */
+    int32_t scale;
+    int32_t transform;
+  } current, pending;
 } wayland_output;
 
 typedef struct {
@@ -212,10 +223,10 @@ static void wayland_surface_protocol_enter(void *data,
     return;
   }
 
-  wl_surface_set_buffer_scale(wl_surface, output->scale);
+  wl_surface_set_buffer_scale(wl_surface, output->current.scale);
 
-  if (wayland->scale != output->scale) {
-    wayland->scale = output->scale;
+  if (wayland->scale != output->current.scale) {
+    wayland->scale = output->current.scale;
 
     // create new buffers with the correct scaled size
     rofi_view_pool_refresh();
@@ -1005,33 +1016,82 @@ static void wayland_output_release(wayland_output *self) {
 
   g_hash_table_remove(wayland->outputs, self->output);
 
+  g_free(self->name);
   g_free(self);
 }
 
-static void wayland_output_done(void *data, struct wl_output *output) {}
+static void wayland_output_done(void *data, struct wl_output *output) {
+  wayland_output *self = data;
+
+  self->current = self->pending;
+
+  g_debug("Output %s: %" PRIi32 "x%" PRIi32 " (%" PRIi32 "x%" PRIi32 "mm)"
+          " position %" PRIi32 "x%" PRIi32 " scale %" PRIi32
+          " transform %" PRIi32,
+          self->name ? self->name : "Unknown", self->current.width,
+          self->current.height, self->current.physical_width,
+          self->current.physical_height, self->current.x, self->current.y,
+          self->current.scale, self->current.transform);
+}
 
 static void wayland_output_geometry(void *data, struct wl_output *output,
                                     int32_t x, int32_t y, int32_t width,
                                     int32_t height, int32_t subpixel,
                                     const char *make, const char *model,
-                                    int32_t transform) {}
+                                    int32_t transform) {
+  wayland_output *self = data;
+
+  self->pending.x = x;
+  self->pending.y = y;
+  self->pending.physical_width = width;
+  self->pending.physical_height = height;
+  self->pending.transform = transform;
+}
 
 static void wayland_output_mode(void *data, struct wl_output *output,
                                 enum wl_output_mode flags, int32_t width,
-                                int32_t height, int32_t refresh) {}
+                                int32_t height, int32_t refresh) {
+  wayland_output *self = data;
+
+  if (flags & WL_OUTPUT_MODE_CURRENT) {
+    self->pending.width = width;
+    self->pending.height = height;
+  }
+}
 
 static void wayland_output_scale(void *data, struct wl_output *output,
                                  int32_t scale) {
   wayland_output *self = data;
 
-  self->scale = scale;
+  self->pending.scale = scale;
 }
+
+#ifdef WL_OUTPUT_NAME_SINCE_VERSION
+static void wayland_output_name(void *data, struct wl_output *output,
+                                const char *name) {
+  wayland_output *self = data;
+
+  g_free(self->name);
+  self->name = g_strdup(name);
+}
+#endif
+
+#ifdef WL_OUTPUT_DESCRIPTION_SINCE_VERSION
+static void wayland_output_description(void *data, struct wl_output *output,
+                                       const char *name) {}
+#endif
 
 static const struct wl_output_listener wayland_output_listener = {
     .geometry = wayland_output_geometry,
     .mode = wayland_output_mode,
     .scale = wayland_output_scale,
     .done = wayland_output_done,
+#ifdef WL_OUTPUT_NAME_SINCE_VERSION
+    .name = wayland_output_name,
+#endif
+#ifdef WL_OUTPUT_DESCRIPTION_SINCE_VERSION
+    .description = wayland_output_description,
+#endif
 };
 
 static const char *const wayland_cursor_names[] = {
@@ -1065,13 +1125,15 @@ static void wayland_registry_handle_global(void *data,
 
     wl_seat_add_listener(seat->seat, &wayland_seat_listener, seat);
   } else if (g_strcmp0(interface, wl_output_interface.name) == 0) {
+    version = CLAMP(version, WL_OUTPUT_INTERFACE_MIN_VERSION,
+                    WL_OUTPUT_INTERFACE_MAX_VERSION);
     wayland_output *output = g_new0(wayland_output, 1);
     output->context = wayland;
     output->global_name = name;
     output->output =
-        wl_registry_bind(registry, name, &wl_output_interface,
-                         MIN(version, WL_OUTPUT_INTERFACE_VERSION));
-    output->scale = 1;
+        wl_registry_bind(registry, name, &wl_output_interface, version);
+    output->pending.scale = 1;
+    output->current = output->pending;
 
     g_hash_table_insert(wayland->outputs, output->output, output);
 
