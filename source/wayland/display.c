@@ -232,6 +232,12 @@ static void wayland_surface_protocol_enter(void *data,
     return;
   }
 
+  if (config.dpi == 0 || config.dpi == 1) {
+    // DPI auto-detect requested.
+    config.dpi = wayland_output_get_dpi(output, output->current.scale, height);
+    g_debug("Auto-detected DPI: %d", config.dpi);
+  }
+
   wl_surface_set_buffer_scale(wl_surface, output->current.scale);
 
   if (wayland->scale != output->current.scale) {
