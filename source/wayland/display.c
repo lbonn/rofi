@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <linux/input-event-codes.h>
 #include <locale.h>
+#include <math.h>
 #include <stdint.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -48,6 +49,8 @@
 
 #include <nkutils-bindings.h>
 
+#include <rofi.h>
+
 #include "keyb.h"
 #include "rofi-types.h"
 #include "settings.h"
@@ -59,6 +62,12 @@
 
 #include "primary-selection-unstable-v1-protocol.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
+
+#define wayland_output_get_dpi(output, scale, dimension)                       \
+  ((output)->current.physical_##dimension > 0 && (scale) > 0                   \
+       ? round((double)(output)->current.dimension * 25.4 / (scale) /          \
+               (output)->current.physical_##dimension)                         \
+       : 0)
 
 typedef struct _display_buffer_pool wayland_buffer_pool;
 typedef struct {
@@ -1458,7 +1467,40 @@ static void wayland_display_cleanup(void) {
   g_water_wayland_source_free(wayland->main_loop_source);
 }
 
-static void wayland_display_dump_monitor_layout(void) {}
+static void wayland_display_dump_monitor_layout(void) {
+  int is_term = isatty(fileno(stdout));
+  GHashTableIter iter;
+  wayland_output *output;
+
+  g_hash_table_iter_init(&iter, wayland->outputs);
+  printf("Monitor layout:\n");
+  while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&output)) {
+    printf("%s              ID%s: %" PRIu32, is_term ? color_bold : "",
+           is_term ? color_reset : "", output->global_name);
+    printf("\n");
+    printf("%s            name%s: %s\n", is_term ? color_bold : "",
+           is_term ? color_reset : "", output->name);
+    printf("%s           scale%s: %" PRIi32 "\n", is_term ? color_bold : "",
+           is_term ? color_reset : "", output->current.scale);
+    printf("%s        position%s: %" PRIi32 ",%" PRIi32 "\n",
+           is_term ? color_bold : "", is_term ? color_reset : "",
+           output->current.x, output->current.y);
+    printf("%s            size%s: %" PRIi32 ",%" PRIi32 "\n",
+           is_term ? color_bold : "", is_term ? color_reset : "",
+           output->current.width, output->current.height);
+
+    if (output->current.physical_width > 0 &&
+        output->current.physical_height > 0) {
+      printf("%s            size%s: %" PRIi32 "mm,%" PRIi32
+             "mm  dpi: %.0f,%.0f\n",
+             is_term ? color_bold : "", is_term ? color_reset : "",
+             output->current.physical_width, output->current.physical_height,
+             wayland_output_get_dpi(output, output->current.scale, width),
+             wayland_output_get_dpi(output, output->current.scale, height));
+    }
+    printf("\n");
+  }
+}
 
 static void
 wayland_display_startup_notification(RofiHelperExecuteContext *context,
