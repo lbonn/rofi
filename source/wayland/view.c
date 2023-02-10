@@ -286,6 +286,10 @@ static void wayland___create_window(MenuFlags menu_flags) {
 
   WlState.fullscreen = rofi_theme_get_boolean(WIDGET(win), "fullscreen", FALSE);
 
+  if (WlState.fullscreen) {
+    display_set_fullscreen_mode();
+  }
+
   widget_free(WIDGET(win));
 
   TICK_N("done");

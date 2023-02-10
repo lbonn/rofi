@@ -1403,6 +1403,18 @@ static char *wayland_get_clipboard_data(int type) {
   return NULL;
 }
 
+static void wayland_set_fullscreen_mode() {
+  if (!wayland->wlr_surface) {
+      return;
+  }
+  zwlr_layer_surface_v1_set_exclusive_zone(wayland->wlr_surface, -1);
+  zwlr_layer_surface_v1_set_size(wayland->wlr_surface, 0, 0);
+  wl_surface_commit(wayland->surface);
+  wl_display_roundtrip(wayland->display);
+
+  rofi_view_pool_refresh();
+}
+
 static display_proxy display_ = {
     .setup = wayland_display_setup,
     .late_setup = wayland_display_late_setup,
@@ -1415,6 +1427,7 @@ static display_proxy display_ = {
     .revert_input_focus = wayland_display_revert_input_focus,
     .scale = wayland_display_scale,
     .get_clipboard_data = wayland_get_clipboard_data,
+    .set_fullscreen_mode = wayland_set_fullscreen_mode,
 
     .view = wayland_display_view_proxy,
 };

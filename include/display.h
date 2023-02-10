@@ -129,4 +129,6 @@ enum clipboard_type {
 
 char *display_get_clipboard_data(enum clipboard_type);
 
+void display_set_fullscreen_mode(void);
+
 #endif
