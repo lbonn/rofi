@@ -155,6 +155,7 @@ static void wayland_rofi_view_window_update_size(RofiViewState *state) {
   display_set_surface_dimensions(state->width, state->height,
                                  offset_x, offset_y,
                                  rofi_get_location(state));
+  rofi_view_pool_refresh();
 }
 
 static void wayland_rofi_view_set_size(RofiViewState *state, gint width,
@@ -402,8 +403,7 @@ static int wayland_rofi_view_calculate_window_height(RofiViewState *state) {
   // Autosize based on widgets.
   widget *main_window = WIDGET(state->main_window);
 
-  height = widget_get_desired_height(main_window, state->width);
-  return height;
+  return widget_get_desired_height(main_window, state->width);
 }
 
 static void wayland_rofi_view_hide(void) {}
