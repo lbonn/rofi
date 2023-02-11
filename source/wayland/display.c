@@ -194,6 +194,9 @@ wayland_buffer_pool *display_buffer_pool_new(gint width, gint height) {
 }
 
 void display_buffer_pool_free(wayland_buffer_pool *self) {
+  if ( self == NULL ) {
+    return;
+  }
   self->to_free = TRUE;
   wayland_buffer_cleanup(self);
 }
