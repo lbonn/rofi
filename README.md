@@ -7,20 +7,6 @@
 <a href="https://repology.org/metapackage/rofi-wayland/versions"><img src="https://repology.org/badge/tiny-repos/rofi-wayland.svg"></a>
 </p>
 
-
-# Please match the documentation and example scripts to the version of rofi used:
-
-* [next version](https://github.com/davatorium/rofi)
-* [1.7.5](https://github.com/davatorium/rofi/tree/1.7.5)
-* [1.7.4](https://github.com/davatorium/rofi/tree/1.7.4)
-* [1.7.3](https://github.com/davatorium/rofi/tree/1.7.3)
-* [1.7.2](https://github.com/davatorium/rofi/tree/1.7.2)
-* [1.7.1](https://github.com/davatorium/rofi/tree/1.7.1)
-* [1.7.0](https://github.com/davatorium/rofi/tree/1.7.0)
-
-Also see the locally installed documentation (manpages).
-
-
 <h1 align="center">
   Rofi
 </h1>
@@ -65,7 +51,6 @@ Rofi is not:
    - [Themes](#themes)
 - [Screenshots](#screenshots)
 - [Wiki](#wiki)
-- [Discussion places](#discussion-places)
 
 # Features
 
@@ -145,7 +130,7 @@ Window switcher mode is now ready to use on compositors with support for wlr-for
 
 # Manpage
 
-For more up to date information, please see the manpages. The other sections and links might have outdated information as they have relatively less maintainance than the manpages. So, if you come across any issues please consult manpages, [discussion](https://github.com/davatorium/rofi/discussions) and [issue tracker](https://github.com/davatorium/rofi/issues?q=) before filing new issue.
+For more up to date information, please see the manpages. The other sections and links might have outdated information as they have relatively less maintainance than the manpages. So, if you come across any issues please consult manpages, [discussion from upstream rofi](https://github.com/davatorium/rofi/discussions) and [issue tracker](https://github.com/lbonn/rofi/issues?q=) before filing new issue.
 
  * Manpages:
      * [rofi](doc/rofi.1.markdown)
@@ -202,14 +187,14 @@ rofi -dump-config > ~/.config/rofi/config.rasi
 
 This creates a file called `config.rasi` in the `~/.config/rofi/` folder. You can modify this file to set configuration settings and modify themes. `config.rasi` is the file rofi looks to by default.
 
-Please see the [configuration guide](https://github.com/davatorium/rofi/blob/next/CONFIG.md) for a summary of configuration options. More detailed options are provided in the manpages.
+Please see the [configuration guide](https://github.com/lbonn/rofi/blob/wayland/CONFIG.md) for a summary of configuration options. More detailed options are provided in the manpages.
 
 ## Themes
 
-Please see the [themes manpages](https://github.com/davatorium/rofi/blob/next/doc/rofi-theme.5.markdown) for a detailed description.
+Please see the [themes manpages](https://github.com/lbonn/rofi/blob/wayland/doc/rofi-theme.5.markdown) for a detailed description.
 
 
-The latest bundled themes can be found [here](https://github.com/davatorium/rofi/tree/next/themes).
+The latest bundled themes can be found [here](https://github.com/lbonn/rofi/tree/wayland/themes).
 
 # Screenshots
 
@@ -227,10 +212,10 @@ Default theme:
 
 # Wiki 
 
-| ❗ **The Wiki is currently unmaintained and might contain outdated data ** |
+| ❗ **The upstream rofi Wiki is currently unmaintained and might contain outdated data ** |
 | --- |
 
-[Go to wiki](https://github.com/davatorium/rofi/wiki) .
+[Go to upstream rofi wiki](https://github.com/davatorium/rofi/wiki) .
 
 #### Contents
 
@@ -242,17 +227,3 @@ Default theme:
 * [Script mode](https://github.com/davatorium/rofi/wiki/rfc-script-mode)
 * [Creating an issue](https://github.com/davatorium/rofi/blob/master/.github/CONTRIBUTING.md)
 * [Creating a Pull request](https://github.com/davatorium/rofi/wiki/Creating-a-pull-request)
-
-# Discussion places:
-
-The [GitHub Discussions](https://github.com/davatorium/rofi/discussions) is the preferred location
-for discussions.
-
-  * [GitHub Discussions](https://github.com/davatorium/rofi/discussions)
-  * IRC (#rofi on irc.libera.chat)
-  * [Reddit](https://reddit.com/r/qtools/)
-
-
-## Stargazers over time
-
-[![Stargazers over time](https://starchart.cc/davatorium/rofi.svg)](https://starchart.cc/davatorium/rofi)
