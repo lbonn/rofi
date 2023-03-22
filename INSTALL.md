@@ -207,3 +207,7 @@ https://packages.fedoraproject.org/pkgs/rofi-wayland/rofi-wayland/
 ### NixOS
 
 rofi-wayland is integrated in nixpkgs master ([PR](https://github.com/NixOS/nixpkgs/pull/150169))
+
+### openSUSE
+
+rofi-wayland is normally integrated in Factory/Tumbleweed as the package `rofi-wayland`.
