@@ -233,6 +233,7 @@ static DmenuScriptEntry *execute_executor(Mode *sw, char *arg,
             retv[(*length)].info = NULL;
             retv[(*length)].icon_fetch_uid = 0;
             retv[(*length)].icon_fetch_size = 0;
+            retv[(*length)].icon_fetch_scale = 0;
             retv[(*length)].nonselectable = FALSE;
             if (buf_length > 0 && (read_length > (ssize_t)buf_length)) {
               dmenuscript_parse_entry_extras(sw, &(retv[(*length)]),
@@ -445,7 +446,7 @@ static char *script_get_message(const Mode *sw) {
 }
 static cairo_surface_t *script_get_icon(const Mode *sw,
                                         unsigned int selected_line,
-                                        unsigned int height) {
+                                        unsigned int height, guint scale) {
   ScriptModePrivateData *pd =
       (ScriptModePrivateData *)mode_get_private_data(sw);
   g_return_val_if_fail(pd->cmd_list != NULL, NULL);
@@ -453,11 +454,13 @@ static cairo_surface_t *script_get_icon(const Mode *sw,
   if (dr->icon_name == NULL) {
     return NULL;
   }
-  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height) {
+  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height &&
+      dr->icon_fetch_scale == scale) {
     return rofi_icon_fetcher_get(dr->icon_fetch_uid);
   }
-  dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->icon_name, height);
+  dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->icon_name, height, scale);
   dr->icon_fetch_size = height;
+  dr->icon_fetch_scale = scale;
   return rofi_icon_fetcher_get(dr->icon_fetch_uid);
 }
 

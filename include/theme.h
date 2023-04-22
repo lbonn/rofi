@@ -83,12 +83,12 @@ typedef struct ThemeWidget {
 } ThemeWidget;
 
 /**
- * Global pointer to the current active theme.
+ * Display scale.
  */
-extern ThemeWidget *rofi_theme;
+typedef guint (*disp_scale_func)(void);
 
 /**
- * Used to store theme.
+ * Global pointer to the current active theme.
  */
 extern ThemeWidget *rofi_theme;
 
@@ -468,4 +468,9 @@ void rofi_theme_print_parsed_files(int is_term);
  */
 GList *rofi_theme_get_list_distance(const widget *widget, const char *property);
 GList *rofi_theme_get_list_strings(const widget *widget, const char *property);
+
+/**
+ * @param func The function pointer to scale getter.
+ */
+void rofi_theme_set_disp_scale_func(disp_scale_func func);
 #endif

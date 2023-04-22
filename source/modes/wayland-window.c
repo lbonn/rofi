@@ -95,6 +95,7 @@ typedef struct {
 
   unsigned int cached_icon_uid;
   unsigned int cached_icon_size;
+  guint cached_icon_scale;
 } ForeignToplevelHandle;
 
 static void foreign_toplevel_handle_free(ForeignToplevelHandle *self) {
@@ -571,7 +572,7 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
 }
 
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
-                                  unsigned int height) {
+                                  unsigned int height, guint scale) {
   WaylandWindowModePrivateData *pd =
       (WaylandWindowModePrivateData *)mode_get_private_data(sw);
 
@@ -586,7 +587,8 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
     return NULL;
   }
 
-  if (toplevel->cached_icon_uid > 0 && toplevel->cached_icon_size == height) {
+  if (toplevel->cached_icon_uid > 0 && toplevel->cached_icon_size == height &&
+      toplevel->cached_icon_scale == scale) {
     return rofi_icon_fetcher_get(toplevel->cached_icon_uid);
   }
 
@@ -597,7 +599,8 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
    */
   gchar *app_id_lower = g_utf8_strdown(toplevel->app_id, -1);
   toplevel->cached_icon_size = height;
-  toplevel->cached_icon_uid = rofi_icon_fetcher_query(app_id_lower, height);
+  toplevel->cached_icon_scale = scale;
+  toplevel->cached_icon_uid = rofi_icon_fetcher_query(app_id_lower, height, scale);
   g_free(app_id_lower);
 
   return rofi_icon_fetcher_get(toplevel->cached_icon_uid);

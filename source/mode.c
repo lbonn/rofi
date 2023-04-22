@@ -73,11 +73,11 @@ char *mode_get_display_value(const Mode *mode, unsigned int selected_line,
 }
 
 cairo_surface_t *mode_get_icon(Mode *mode, unsigned int selected_line,
-                               unsigned int height) {
+                               unsigned int height, guint scale) {
   g_assert(mode != NULL);
 
   if (mode->_get_icon != NULL) {
-    cairo_surface_t *icon = mode->_get_icon(mode, selected_line, height);
+    cairo_surface_t *icon = mode->_get_icon(mode, selected_line, height, scale);
     if (icon) {
       return icon;
     }
@@ -98,7 +98,7 @@ cairo_surface_t *mode_get_icon(Mode *mode, unsigned int selected_line,
         rofi_theme_find_property(wid, P_STRING, "fallback-icon", TRUE);
     if (p != NULL && (p->type == P_STRING && p->value.s)) {
       mode->fallback_icon_fetch_uid =
-          rofi_icon_fetcher_query(p->value.s, height);
+          rofi_icon_fetcher_query(p->value.s, height, scale);
       return NULL;
     }
   }

@@ -476,8 +476,8 @@ static void selection_changed_callback(G_GNUC_UNUSED listview *lv,
       int icon_height =
           widget_get_desired_height(WIDGET(state->icon_current_entry),
                                     WIDGET(state->icon_current_entry)->w);
-      cairo_surface_t *icon =
-          mode_get_icon(state->sw, state->line_map[index], icon_height);
+      cairo_surface_t *icon = mode_get_icon(state->sw, state->line_map[index],
+                                            icon_height, display_scale());
       icon_set_surface(state->icon_current_entry, icon);
     } else {
       icon_set_surface(state->icon_current_entry, NULL);
@@ -496,8 +496,8 @@ static void update_callback(textbox *t, icon *ico, unsigned int index,
 
     if (ico) {
       int icon_height = widget_get_desired_height(WIDGET(ico), WIDGET(ico)->w);
-      cairo_surface_t *icon =
-          mode_get_icon(state->sw, state->line_map[index], icon_height);
+      cairo_surface_t *icon = mode_get_icon(state->sw, state->line_map[index],
+                                            icon_height, display_scale());
       icon_set_surface(ico, icon);
     }
     if (t) {

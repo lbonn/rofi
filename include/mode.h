@@ -133,13 +133,14 @@ char *mode_get_display_value(const Mode *mode, unsigned int selected_line,
  * @param mode The mode to query
  * @param selected_line The entry to query
  * @param height The desired height of the icon.
+ * @param scale The desired scale of the icon.
  *
  * Returns the icon for the selected_line
  *
  * @returns allocated new cairo_surface_t if applicable
  */
 cairo_surface_t *mode_get_icon(Mode *mode, unsigned int selected_line,
-                               unsigned int height);
+                               unsigned int height, guint scale);
 
 /**
  * @param mode The mode to query
