@@ -490,6 +490,8 @@ static const struct wl_keyboard_listener wayland_keyboard_listener = {
     .repeat_info = wayland_keyboard_repeat_info,
 };
 
+static gboolean wayland_cursor_reload_theme(guint scale);
+
 static void wayland_cursor_set_image(int i) {
   struct wl_buffer *buffer;
   struct wl_cursor_image *image;
@@ -497,6 +499,7 @@ static void wayland_cursor_set_image(int i) {
 
   wayland->cursor.image = image;
   buffer = wl_cursor_image_get_buffer(wayland->cursor.image);
+  wl_surface_set_buffer_scale(wayland->cursor.surface, wayland->scale);
   wl_surface_attach(wayland->cursor.surface, buffer, 0, 0);
   wl_surface_damage(wayland->cursor.surface, 0, 0, wayland->cursor.image->width,
                     wayland->cursor.image->height);
@@ -592,8 +595,11 @@ static void wayland_pointer_enter(void *data, struct wl_pointer *pointer,
                                   wl_fixed_t x, wl_fixed_t y) {
   wayland_seat *self = data;
 
-  if (wayland->cursor.surface == NULL) {
+  if (!wayland_cursor_reload_theme(wayland->scale))
     return;
+
+  if (wayland->cursor.surface == NULL) {
+    wayland->cursor.surface = wl_compositor_create_surface(wayland->compositor);
   }
 
   if (wayland->cursor.cursor->image_count < 2) {
@@ -602,9 +608,10 @@ static void wayland_pointer_enter(void *data, struct wl_pointer *pointer,
     wayland_cursor_frame_callback(wayland, wayland->cursor.frame_cb, 0);
   }
 
-  wl_pointer_set_cursor(self->pointer, serial, wayland->cursor.surface,
-                        wayland->cursor.image->hotspot_x,
-                        wayland->cursor.image->hotspot_y);
+  wl_pointer_set_cursor(
+      self->pointer, serial, wayland->cursor.surface,
+      wayland->cursor.image->hotspot_x / wayland->cursor.scale,
+      wayland->cursor.image->hotspot_y / wayland->cursor.scale);
 }
 
 static void wayland_pointer_leave(void *data, struct wl_pointer *pointer,
@@ -1121,6 +1128,7 @@ static void wayland_registry_handle_global_remove(void *data,
     wayland->cursor.image = NULL;
     wayland->cursor.cursor = NULL;
     wayland->cursor.theme = NULL;
+    wayland->cursor.scale = 0;
   }
 
   GHashTableIter iter;
@@ -1182,6 +1190,47 @@ static gboolean wayland_error(gpointer user_data) {
   return G_SOURCE_REMOVE;
 }
 
+static gboolean wayland_cursor_reload_theme(guint scale) {
+  if (wayland->cursor.theme != NULL) {
+    if (wayland->cursor.scale == scale)
+      return TRUE;
+
+    wl_cursor_theme_destroy(wayland->cursor.theme);
+    wayland->cursor.theme = NULL;
+    wayland->cursor.cursor = NULL;
+  }
+
+  guint64 cursor_size = 24;
+  char *env_cursor_size = (char *)g_getenv("XCURSOR_SIZE");
+  if (env_cursor_size && strlen(env_cursor_size) > 0) {
+      guint64 size = g_ascii_strtoull(env_cursor_size, NULL, 10);
+      if (0 < size && size < G_MAXUINT64) {
+          cursor_size = size;
+      }
+  }
+  cursor_size *= scale;
+
+  wayland->cursor.theme =
+      wl_cursor_theme_load(wayland->cursor.theme_name, cursor_size, wayland->shm);
+  if (wayland->cursor.theme != NULL) {
+    const char *const *cname = (const char *const *)wayland->cursor.name;
+    for (cname = (cname != NULL) ? cname : wayland_cursor_names;
+         (wayland->cursor.cursor == NULL) && (*cname != NULL); ++cname) {
+      wayland->cursor.cursor =
+          wl_cursor_theme_get_cursor(wayland->cursor.theme, *cname);
+    }
+    if (wayland->cursor.cursor == NULL) {
+      wl_cursor_theme_destroy(wayland->cursor.theme);
+      wayland->cursor.theme = NULL;
+      return FALSE;
+    } else {
+      wayland->cursor.scale = scale;
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 static gboolean wayland_display_setup(GMainLoop *main_loop,
                                       NkBindings *bindings) {
   wayland->main_loop = main_loop;
@@ -1219,32 +1268,6 @@ static gboolean wayland_display_setup(GMainLoop *main_loop,
   if (wayland->layer_shell == NULL) {
     g_error("Rofi on wayland requires support for the layer shell protocol");
     return FALSE;
-  }
-
-  guint64 cursor_size = 24;
-  char *env_cursor_size = (char *)g_getenv("XCURSOR_SIZE");
-  if (env_cursor_size && strlen(env_cursor_size) > 0) {
-      guint64 size = g_ascii_strtoull(env_cursor_size, NULL, 10);
-      if (0 < size && size < G_MAXUINT64) {
-          cursor_size = size;
-      }
-  }
-  wayland->cursor.theme =
-      wl_cursor_theme_load(wayland->cursor.theme_name, cursor_size, wayland->shm);
-  if (wayland->cursor.theme != NULL) {
-    const char *const *cname = (const char *const *)wayland->cursor.name;
-    for (cname = (cname != NULL) ? cname : wayland_cursor_names;
-         (wayland->cursor.cursor == NULL) && (*cname != NULL); ++cname) {
-      wayland->cursor.cursor =
-          wl_cursor_theme_get_cursor(wayland->cursor.theme, *cname);
-    }
-    if (wayland->cursor.cursor == NULL) {
-      wl_cursor_theme_destroy(wayland->cursor.theme);
-      wayland->cursor.theme = NULL;
-    } else {
-      wayland->cursor.surface =
-          wl_compositor_create_surface(wayland->compositor);
-    }
   }
 
   wayland->surface = wl_compositor_create_surface(wayland->compositor);
