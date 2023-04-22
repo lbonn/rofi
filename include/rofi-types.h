@@ -192,6 +192,7 @@ typedef struct {
   RofiScaleType scaling;
   int wsize;
   int hsize;
+  guint scale;
 
   RofiDirection dir;
   double angle;

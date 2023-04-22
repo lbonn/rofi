@@ -1166,6 +1166,7 @@ int main(int argc, char *argv[]) {
   }
   TICK_N("Setup late Display");
 
+  rofi_theme_set_disp_scale_func(display_scale);
   rofi_theme_parse_process_conditionals();
   rofi_theme_parse_process_links();
   TICK_N("Theme setup");

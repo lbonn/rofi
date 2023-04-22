@@ -28,6 +28,7 @@
 /** The log domain of this widget. */
 #define G_LOG_DOMAIN "Widgets.Icon"
 
+#include "display.h"
 #include "widgets/icon.h"
 #include "theme.h"
 #include "widgets/widget-internal.h"
@@ -169,7 +170,7 @@ icon *icon_create(widget *parent, const char *name) {
 
   const char *filename = rofi_theme_get_string(WIDGET(b), "filename", NULL);
   if (filename) {
-    b->icon_fetch_id = rofi_icon_fetcher_query(filename, b->size);
+    b->icon_fetch_id = rofi_icon_fetcher_query(filename, b->size, display_scale());
   }
   b->yalign = rofi_theme_get_double(WIDGET(b), "vertical-align", 0.5);
   b->yalign = MAX(0, MIN(1.0, b->yalign));
