@@ -56,6 +56,7 @@ typedef struct {
     struct wl_cursor_image *image;
     struct wl_surface *surface;
     struct wl_callback *frame_cb;
+    guint scale;
   } cursor;
   GHashTable *seats;
   GHashTable *seats_by_name;
