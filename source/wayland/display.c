@@ -1457,8 +1457,17 @@ static gboolean wayland_cursor_reload_theme(guint scale) {
   }
   cursor_size *= scale;
 
-  wayland->cursor.theme = wl_cursor_theme_load(wayland->cursor.theme_name,
+  char *cursor_name = wayland->cursor.theme_name;
+  if(cursor_name == NULL) {
+    char *env_cursor_theme = (char *)g_getenv("XCURSOR_THEME");
+    if(strlen(env_cursor_theme) > 0) {
+      cursor_name = env_cursor_theme;
+    }
+  }
+
+  wayland->cursor.theme = wl_cursor_theme_load(cursor_name,
                                                cursor_size, wayland->shm);
+
   if (wayland->cursor.theme != NULL) {
     wayland->cursor.cursor = rofi_cursor_type_to_wl_cursor(
         wayland->cursor.theme, wayland->cursor.type);
