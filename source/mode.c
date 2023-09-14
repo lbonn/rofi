@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -34,6 +34,7 @@
 
 #include "rofi-icon-fetcher.h"
 // This one should only be in mode implementations.
+#include "helper.h"
 #include "mode-private.h"
 /**
  * @ingroup MODE
@@ -43,6 +44,17 @@
 int mode_init(Mode *mode) {
   g_return_val_if_fail(mode != NULL, FALSE);
   g_return_val_if_fail(mode->_init != NULL, FALSE);
+  if (mode->type == MODE_TYPE_UNSET) {
+    g_warning("Mode '%s' does not have a type set. Please update mode/plugin.",
+              mode->name);
+  }
+  if ((mode->type & MODE_TYPE_COMPLETER) == MODE_TYPE_COMPLETER) {
+    if (mode->_completer_result == NULL) {
+      g_error(
+          "Mode '%s' is incomplete and does not implement _completer_result.",
+          mode->name);
+    }
+  }
   // to make sure this is initialized correctly.
   mode->fallback_icon_fetch_uid = 0;
   mode->fallback_icon_not_found = FALSE;
@@ -204,4 +216,33 @@ char *mode_get_message(const Mode *mode) {
   }
   return NULL;
 }
+
+Mode *mode_create(const Mode *mode) {
+  if (mode->_create) {
+    return mode->_create();
+  }
+  return NULL;
+}
+
+ModeMode mode_completer_result(Mode *mode, int menu_retv, char **input,
+                               unsigned int selected_line, char **path) {
+  if ((mode->type & MODE_TYPE_COMPLETER) == 0) {
+    g_warning("Trying to call completer_result on non completion mode.");
+    return 0;
+  }
+  if (mode->_completer_result) {
+    return mode->_completer_result(mode, menu_retv, input, selected_line, path);
+  }
+  return 0;
+}
+
+gboolean mode_is_completer(const Mode *mode) {
+  if (mode) {
+    if ((mode->type & MODE_TYPE_COMPLETER) == MODE_TYPE_COMPLETER) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 /**@}*/

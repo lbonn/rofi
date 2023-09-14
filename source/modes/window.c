@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,7 +28,7 @@
 /** The log domain of this dialog. */
 #define G_LOG_DOMAIN "Modes.Window"
 
-#include <config.h>
+#include "config.h"
 
 #ifdef WINDOW_MODE
 
@@ -128,6 +128,7 @@ typedef struct {
   uint32_t icon_fetch_size;
   guint icon_fetch_scale;
   gboolean thumbnail_checked;
+  gboolean icon_theme_checked;
 } client;
 
 // window lists
@@ -151,6 +152,7 @@ typedef struct {
   GRegex *window_regex;
   // Hide current active window
   gboolean hide_active_window;
+  gboolean prefer_icon_theme;
 } WindowModePrivateData;
 
 winlist *cache_client = NULL;
@@ -355,7 +357,11 @@ static client *window_client(WindowModePrivateData *pd, xcb_window_t win) {
   if (tmp_title == NULL) {
     tmp_title = window_get_text_prop(c->window, XCB_ATOM_WM_NAME);
   }
-  c->title = g_markup_escape_text(tmp_title, -1);
+  if (tmp_title != NULL) {
+    c->title = g_markup_escape_text(tmp_title, -1);
+  } else {
+    c->title = g_strdup("<i>no title set</i>");
+  }
   pd->title_len =
       MAX(c->title ? g_utf8_strlen(c->title, -1) : 0, pd->title_len);
   g_free(tmp_title);
@@ -394,8 +400,8 @@ static gboolean window_client_reload(G_GNUC_UNUSED void *data) {
     window_mode._init(&window_mode);
   }
   if (window_mode_cd.private_data) {
-    window_mode._destroy(&window_mode_cd);
-    window_mode._init(&window_mode_cd);
+    window_mode_cd._destroy(&window_mode_cd);
+    window_mode_cd._init(&window_mode_cd);
   }
   if (window_mode.private_data || window_mode_cd.private_data) {
     rofi_view_reload();
@@ -573,13 +579,19 @@ static void _window_mode_load_data(Mode *sw, unsigned int cd) {
     // we're working...
     pd->ids = winlist_new();
 
+    int has_names = FALSE;
+    ssize_t ws_names_length = 0;
+    char *ws_names = NULL;
     xcb_get_property_cookie_t prop_cookie =
         xcb_ewmh_get_desktop_names(&xcb->ewmh, xcb->screen_nbr);
     xcb_ewmh_get_utf8_strings_reply_t names;
-    int has_names = FALSE;
     if (xcb_ewmh_get_desktop_names_reply(&xcb->ewmh, prop_cookie, &names,
                                          NULL)) {
+      ws_names_length = names.strings_len;
+      ws_names = g_malloc0_n(names.strings_len + 1, sizeof(char));
+      memcpy(ws_names, names.strings, names.strings_len);
       has_names = TRUE;
+      xcb_ewmh_get_utf8_strings_reply_wipe(&names);
     }
     // calc widths of fields
     for (i = clients.windows_len - 1; i > -1; i--) {
@@ -628,11 +640,11 @@ static void _window_mode_load_data(Mode *sw, unsigned int cd) {
                 WM_PANGO_WORKSPACE_NAMES) {
               char *output = NULL;
               if (pango_parse_markup(
-                      _window_name_list_entry(names.strings, names.strings_len,
+                      _window_name_list_entry(ws_names, ws_names_length,
                                               winclient->wmdesktop),
                       -1, 0, NULL, &output, NULL, NULL)) {
                 winclient->wmdesktopstr = g_strdup(_window_name_list_entry(
-                    names.strings, names.strings_len, winclient->wmdesktop));
+                    ws_names, ws_names_length, winclient->wmdesktop));
                 winclient->wmdesktopstr_len = g_utf8_strlen(output, -1);
                 pd->wmdn_len = MAX(pd->wmdn_len, winclient->wmdesktopstr_len);
                 g_free(output);
@@ -644,7 +656,7 @@ static void _window_mode_load_data(Mode *sw, unsigned int cd) {
               }
             } else {
               winclient->wmdesktopstr = g_markup_escape_text(
-                  _window_name_list_entry(names.strings, names.strings_len,
+                  _window_name_list_entry(ws_names, ws_names_length,
                                           winclient->wmdesktop),
                   -1);
               winclient->wmdesktopstr_len =
@@ -674,7 +686,7 @@ static void _window_mode_load_data(Mode *sw, unsigned int cd) {
     }
 
     if (has_names) {
-      xcb_ewmh_get_utf8_strings_reply_wipe(&names);
+      g_free(ws_names);
     }
   }
   xcb_ewmh_get_windows_reply_wipe(&clients);
@@ -688,6 +700,11 @@ static int window_mode_init(Mode *sw) {
         rofi_theme_find_property(wid, P_BOOLEAN, "hide-active-window", FALSE);
     if (p && p->type == P_BOOLEAN && p->value.b == TRUE) {
       pd->hide_active_window = TRUE;
+    }
+    // prefer icon theme selection
+    p = rofi_theme_find_property(wid, P_BOOLEAN, "prefer-icon-theme", FALSE);
+    if (p && p->type == P_BOOLEAN && p->value.b == TRUE) {
+      pd->prefer_icon_theme = TRUE;
     }
     pd->window_regex = g_regex_new("{[-\\w]+(:-?[0-9]+)?}", 0, 0, NULL);
     mode_set_private_data(sw, (void *)pd);
@@ -852,7 +869,7 @@ static void window_mode_destroy(Mode *sw) {
 }
 struct arg {
   const WindowModePrivateData *pd;
-  client *c;
+  const client *c;
 };
 
 static void helper_eval_add_str(GString *str, const char *input, int l,
@@ -916,7 +933,7 @@ static gboolean helper_eval_cb(const GMatchInfo *info, GString *str,
   return FALSE;
 }
 static char *_generate_display_string(const WindowModePrivateData *pd,
-                                      client *c) {
+                                      const client *c) {
   struct arg d = {pd, c};
   char *res = g_regex_replace_eval(pd->window_regex, config.window_format, -1,
                                    0, 0, helper_eval_cb, &d, NULL);
@@ -927,7 +944,7 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
                                 int *state, G_GNUC_UNUSED GList **list,
                                 int get_entry) {
   WindowModePrivateData *rmpd = mode_get_private_data(sw);
-  client *c = window_client(rmpd, rmpd->ids->array[selected_line]);
+  const client *c = window_client(rmpd, rmpd->ids->array[selected_line]);
   if (c == NULL) {
     return get_entry ? g_strdup("Window has vanished") : NULL;
   }
@@ -952,10 +969,14 @@ static cairo_user_data_key_t data_key;
  * \param data The image's data in ARGB format, will be copied by this
  * function.
  */
-static cairo_surface_t *draw_surface_from_data(int width, int height,
+static cairo_surface_t *draw_surface_from_data(uint32_t width, uint32_t height,
                                                uint32_t const *const data) {
-  unsigned long int len = width * height;
-  unsigned long int i;
+  // limit surface size.
+  if ( width >= 65536 || height >= 65536){
+    return NULL;
+  }
+  uint32_t len = width * height;
+  uint32_t i;
   uint32_t *buffer = g_new0(uint32_t, len);
   cairo_surface_t *surface;
 
@@ -1057,27 +1078,52 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
     }
     c->thumbnail_checked = FALSE;
     c->icon_checked = FALSE;
+    c->icon_theme_checked = FALSE;
   }
   // TODO: apply scaling to the following two routines
   if (config.window_thumbnail && c->thumbnail_checked == FALSE) {
     c->icon = x11_helper_get_screenshot_surface_window(c->window, size);
     c->thumbnail_checked = TRUE;
   }
-  if (c->icon == NULL && c->icon_checked == FALSE) {
-    c->icon = get_net_wm_icon(rmpd->ids->array[selected_line], size);
-    c->icon_checked = TRUE;
-  }
-  if (c->icon == NULL && c->class) {
-    if (c->icon_fetch_uid > 0 && c->icon_fetch_size == size &&
-        c->icon_fetch_scale == scale) {
-      return rofi_icon_fetcher_get(c->icon_fetch_uid);
+  if (rmpd->prefer_icon_theme == FALSE) {
+    if (c->icon == NULL && c->icon_checked == FALSE) {
+      c->icon = get_net_wm_icon(rmpd->ids->array[selected_line], size);
+      c->icon_checked = TRUE;
     }
-    char *class_lower = g_utf8_strdown(c->class, -1);
-    c->icon_fetch_uid = rofi_icon_fetcher_query(class_lower, size, scale);
-    g_free(class_lower);
-    c->icon_fetch_size = size;
-    c->icon_fetch_scale = scale;
-    return rofi_icon_fetcher_get(c->icon_fetch_uid);
+    if (c->icon == NULL && c->class && c->icon_theme_checked == FALSE) {
+      if (c->icon_fetch_uid == 0) {
+        char *class_lower = g_utf8_strdown(c->class, -1);
+        c->icon_fetch_uid = rofi_icon_fetcher_query(class_lower, size, scale);
+        g_free(class_lower);
+        c->icon_fetch_size = size;
+      }
+      c->icon_theme_checked =
+          rofi_icon_fetcher_get_ex(c->icon_fetch_uid, &(c->icon));
+      if (c->icon) {
+        cairo_surface_reference(c->icon);
+      }
+    }
+  } else {
+    if (c->icon == NULL && c->class && c->icon_theme_checked == FALSE) {
+      if (c->icon_fetch_uid == 0 || c->icon_fetch_size != size ||
+          c->icon_fetch_size != scale) {
+        char *class_lower = g_utf8_strdown(c->class, -1);
+        c->icon_fetch_uid = rofi_icon_fetcher_query(class_lower, size, scale);
+        g_free(class_lower);
+        c->icon_fetch_size = size;
+        c->icon_fetch_scale = scale;
+      }
+      c->icon_theme_checked =
+          rofi_icon_fetcher_get_ex(c->icon_fetch_uid, &(c->icon));
+      if (c->icon) {
+        cairo_surface_reference(c->icon);
+      }
+    }
+    if (c->icon_theme_checked == TRUE && c->icon == NULL &&
+        c->icon_checked == FALSE) {
+      c->icon = get_net_wm_icon(rmpd->ids->array[selected_line], size);
+      c->icon_checked = TRUE;
+    }
   }
   c->icon_fetch_size = size;
   c->icon_fetch_scale = scale;
@@ -1097,7 +1143,8 @@ Mode window_mode = {.name = "window",
                     ._get_completion = NULL,
                     ._preprocess_input = NULL,
                     .private_data = NULL,
-                    .free = NULL};
+		    .free = NULL,
+		    .type  = MODE_TYPE_SWITCHER };
 Mode window_mode_cd = {.name = "windowcd",
                        .cfg_name_key = "display-windowcd",
                        ._init = window_mode_init_cd,
@@ -1110,6 +1157,7 @@ Mode window_mode_cd = {.name = "windowcd",
                        ._get_completion = NULL,
                        ._preprocess_input = NULL,
                        .private_data = NULL,
-                       .free = NULL};
+                       .free = NULL,
+		       .type  = MODE_TYPE_SWITCHER };
 
 #endif // WINDOW_MODE

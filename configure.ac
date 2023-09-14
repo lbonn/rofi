@@ -1,4 +1,4 @@
-AC_INIT([rofi], [1.7.5-dev], [https://github.com/davatorium/rofi/],[],[https://reddit.com/r/qtools/])
+AC_INIT([rofi], [1.7.5-dev], [https://github.com/davatorium/rofi/],[],[https://github.com/davatorium/rofi/discussions])
 
 AC_CONFIG_SRCDIR([source/rofi.c])
 AC_CONFIG_HEADER([config.h])
@@ -145,7 +145,17 @@ NK_INIT([bindings xdg-theme])
 PKG_CHECK_MODULES([glib],     [glib-2.0 >= ${glib_min_version} gio-unix-2.0 gmodule-2.0])
 AC_DEFINE_UNQUOTED([GLIB_VERSION_MIN_REQUIRED], [(G_ENCODE_VERSION(${glib_min_major},${glib_min_minor}))], [The lower GLib version supported])
 AC_DEFINE_UNQUOTED([GLIB_VERSION_MAX_ALLOWED], [(G_ENCODE_VERSION(${glib_min_major},${glib_min_minor}))], [The highest GLib version supported])
-GW_CHECK_XCB([xcb-aux xcb-xkb xkbcommon xkbcommon-x11 xcb-ewmh xcb-icccm xcb-cursor xcb-randr xcb-xinerama])
+GW_CHECK_XCB([xcb-aux xcb-xkb xkbcommon xkbcommon-x11 xcb-ewmh xcb-icccm xcb-cursor xcb-randr xcb-xinerama ])
+
+
+AC_ARG_ENABLE([imdkit], AS_HELP_STRING([--enable-imdkit], [Build with checks using check library (default: disabled)]))
+
+AS_IF([test "x${enable_imdkit}" = "xyes"], [
+PKG_CHECK_MODULES([imdclient], [xcb-imdkit <= 1.0.2 ],
+                  [AC_DEFINE([XCB_IMDKIT_1_0_3_LOWER], [1], [Indicate lower version of imdclient])
+                  AC_DEFINE([XCB_IMDKIT],[1], [IMD Kit missing])],
+                  [PKG_CHECK_MODULES([imdclient], [xcb-imdkit >= 1.0.3],[AC_DEFINE([XCB_IMDKIT],[1], [IMD Kit missing])],[HAVE_IMDKIT=0])])
+])
 PKG_CHECK_MODULES([pango],    [pango pangocairo])
 PKG_CHECK_MODULES([cairo],    [cairo cairo-xcb])
 PKG_CHECK_MODULES([libsn],    [libstartup-notification-1.0 ])

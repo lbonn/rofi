@@ -3,7 +3,7 @@
  *
  * MIT/X11 License
  * Copyright © 2012 Sean Pringle <sean.pringle@gmail.com>
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -174,30 +174,26 @@ static gchar *prefix_regex(const char *input) {
   return retv;
 }
 
-static char *utf8_helper_simplify_string(const char *s) {
-  gunichar buf2[G_UNICHAR_MAX_DECOMPOSITION_LENGTH] = {
-      0,
-  };
+static char *utf8_helper_simplify_string(const char *os) {
   char buf[6] = {
       0,
   };
-  // Compose the string in maximally composed form.
+
+  // Normalize the string to a fully decomposed form, then filter out
+  // mark/accent characters.
+  char *s = g_utf8_normalize(os, -1, G_NORMALIZE_ALL);
   ssize_t str_size = (g_utf8_strlen(s, -1) * 6 + 2 + 1) * sizeof(char);
   char *str = g_malloc0(str_size);
   char *striter = str;
   for (const char *iter = s; iter && *iter; iter = g_utf8_next_char(iter)) {
     gunichar uc = g_utf8_get_char(iter);
-    int l = 0;
-    gsize dl = g_unichar_fully_decompose(uc, FALSE, buf2,
-                                         G_UNICHAR_MAX_DECOMPOSITION_LENGTH);
-    if (dl) {
-      l = g_unichar_to_utf8(buf2[0], buf);
-    } else {
-      l = g_unichar_to_utf8(uc, buf);
+    if (!g_unichar_ismark(uc)) {
+      int l = g_unichar_to_utf8(uc, buf);
+      memcpy(striter, buf, l);
+      striter += l;
     }
-    memcpy(striter, buf, l);
-    striter += l;
   }
+  g_free(s);
 
   return str;
 }
@@ -585,8 +581,9 @@ int create_pid_file(const char *pidfile, gboolean kill_running) {
       char buffer[64] = {
           0,
       };
-      ssize_t l = read(fd, &buffer, 64);
+      ssize_t l = read(fd, &buffer, 63);
       if (l > 1) {
+        buffer[l] = 0;
         pid_t pid = g_ascii_strtoll(buffer, NULL, 0);
         kill(pid, SIGTERM);
         while (1) {
@@ -1068,19 +1065,57 @@ gboolean helper_execute_command(const char *wd, const char *cmd,
   return helper_execute(wd, args, "", cmd, context);
 }
 
-char *helper_get_theme_path(const char *file, const char *ext) {
+char *helper_get_theme_path(const char *file, const char **ext,
+                            const char *parent_file) {
+
   char *filename = rofi_expand_path(file);
   g_debug("Opening theme, testing: %s\n", filename);
-  if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
-    return filename;
+  if (g_path_is_absolute(filename)) {
+    g_debug("Opening theme, path is absolute: %s", filename);
+    if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+      return filename;
+    }
   }
-  g_free(filename);
-
-  if (g_str_has_suffix(file, ext)) {
-    filename = g_strdup(file);
+  gboolean ext_found = FALSE;
+  for (const char **i = ext; *i != NULL; i++) {
+    if (g_str_has_suffix(file, *i)) {
+      ext_found = TRUE;
+      break;
+    }
+  }
+  if (ext_found) {
+    filename = rofi_expand_path(file);
   } else {
-    filename = g_strconcat(file, ext, NULL);
+    g_assert_nonnull(ext[0]);
+    char *temp = filename;
+    // TODO: Pick the first extension. needs fixing.
+    filename = g_strconcat(temp, ext[0], NULL);
+    g_free(temp);
   }
+  if (g_path_is_absolute(filename)) {
+    g_debug("Opening theme, path is absolute: %s", filename);
+    if (g_file_test(filename, G_FILE_TEST_EXISTS)) {
+      return filename;
+    }
+    g_debug("Opening theme, path is absolute but does not exists: %s",
+            filename);
+  } else {
+    if (parent_file != NULL) {
+      // If no absolute path specified, expand it.
+      char *basedir = g_path_get_dirname(parent_file);
+      char *path = g_build_filename(basedir, filename, NULL);
+      g_free(basedir);
+      g_debug("Opening theme, check in dir where file is included: %s", path);
+      if (g_file_test(path, G_FILE_TEST_EXISTS)) {
+        g_free(filename);
+        return path;
+      }
+      g_debug("Opening theme, file does not exists in dir where file is "
+              "included: %s\n",
+              filename);
+    }
+  }
+
   // Check config's themes directory.
   const char *cpath = g_get_user_config_dir();
   if (cpath) {

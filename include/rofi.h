@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -103,6 +103,14 @@ void rofi_quit_main_loop(void);
  * @return returns Mode * when found, NULL if not.
  */
 Mode *rofi_collect_modes_search(const char *name);
+
+/**
+ * Query the configure file completer.
+ *
+ * @returns the Mode that can be used for file completion or NULL when not
+ * found.
+ */
+const Mode *rofi_get_completer(void);
 /** Reset terminal */
 #define color_reset "\033[0m"
 /** Set terminal text bold */

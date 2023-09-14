@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -228,13 +228,13 @@ static XrmOption xrmOptions[] = {
      "sort",
      {.num = &config.sort},
      NULL,
-     "Use sorting",
+     "Sort menu when filtered",
      CONFIG_DEFAULT},
     {xrm_String,
      "sorting-method",
      {.str = &config.sorting_method},
      NULL,
-     "Choose the strategy used for sorting: normal (levenshtein) or fzf.",
+     "Choose sort strategy: normal (levenshtein) or fzf.",
      CONFIG_DEFAULT},
     {xrm_Boolean,
      "case-sensitive",
@@ -288,13 +288,13 @@ static XrmOption xrmOptions[] = {
      "combi-modi",
      {.str = &config.combi_modes},
      NULL,
-     "Set the modi to combine in combi mode",
+     "Set the modes to combine in combi mode",
      CONFIG_DEFAULT},
     {xrm_String,
      "combi-modes",
      {.str = &config.combi_modes},
      NULL,
-     "Set the modi to combine in combi mode",
+     "Set the modes to combine in combi mode",
      CONFIG_DEFAULT},
     {xrm_String,
      "matching",
@@ -353,7 +353,7 @@ static XrmOption xrmOptions[] = {
      {.str = &config.theme},
      NULL,
      "New style theme file",
-     CONFIG_DEFAULT | CONFIG_NO_DISPLAY},
+     CONFIG_NO_DISPLAY},
     {xrm_Number,
      "max-history-size",
      {.num = &config.max_history_size},
@@ -434,6 +434,12 @@ static XrmOption xrmOptions[] = {
      {.snum = &(config.xserver_i300_workaround)},
      NULL,
      "Workaround for XServer issue #300 (issue #611 for rofi.)",
+     CONFIG_DEFAULT},
+    {xrm_String,
+     "completer-mode",
+     {.str = &(config.completer_mode)},
+     NULL,
+     "What completer to use for drun/run.",
      CONFIG_DEFAULT},
 };
 
@@ -537,6 +543,9 @@ static void config_parse_cmd_option(XrmOption *option) {
 static gboolean config_parser_form_rasi_format(GString *str, char **tokens,
                                                int count, char *argv,
                                                gboolean string) {
+  if (strlen(argv) > 4096) {
+    return FALSE;
+  }
   for (int j = 0; j < (count - 1); j++) {
     g_string_append_printf(str, "%s { ", tokens[j]);
   }

@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -47,19 +47,28 @@
 #include "widgets/textbox.h"
 #include <gio/gio.h>
 
+/**
+ * list of config files we parsed.
+ */
 GList *parsed_config_files = NULL;
 static disp_scale_func disp_scale = NULL;
 
+/** cleanup (free) the list of parsed config files. */
 void rofi_theme_free_parsed_files(void) {
   g_list_free_full(parsed_config_files, g_free);
   parsed_config_files = NULL;
 }
 
+/**
+ * @param is_term if print to terminal
+ *
+ * print the list of parsed config files.
+ */
 void rofi_theme_print_parsed_files(gboolean is_term) {
   printf("\nParsed files:\n");
   for (GList *iter = g_list_first(parsed_config_files); iter != NULL;
        iter = g_list_next(iter)) {
-    printf("\t\u2022 %s%s%s\n", is_term ? color_bold : "",
+    printf("\t\u2023 %s%s%s\n", is_term ? color_bold : "",
            (const char *)(iter->data), is_term ? color_reset : "");
   }
   printf("\n");
@@ -278,7 +287,7 @@ static void rofi_theme_print_distance_unit(RofiDistanceUnit *unit) {
   } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_MULTIPLY) {
     fputs(" * ", stdout);
   } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_MODULO) {
-    fputs(" % ", stdout);
+    fputs(" modulo ", stdout);
   } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_MIN) {
     fputs(" min ", stdout);
   } else if (unit->modtype == ROFI_DISTANCE_MODIFIER_MAX) {
@@ -1332,8 +1341,8 @@ RofiHighlightColorStyle rofi_theme_get_highlight(widget *widget,
   }
   return rofi_theme_get_highlight_inside(p, widget, property, th);
 }
-static int get_pixels(RofiDistanceUnit *unit, RofiOrientation ori) {
-  int val = unit->distance;
+static double get_pixels(RofiDistanceUnit *unit, RofiOrientation ori) {
+  double val = unit->distance;
 
   if (unit->type == ROFI_PU_EM) {
     val = unit->distance * textbox_get_estimated_char_height();
@@ -1355,8 +1364,8 @@ static int get_pixels(RofiDistanceUnit *unit, RofiOrientation ori) {
   return val;
 }
 
-static int distance_unit_get_pixel(RofiDistanceUnit *unit,
-                                   RofiOrientation ori) {
+static double distance_unit_get_pixel(RofiDistanceUnit *unit,
+                                      RofiOrientation ori) {
   switch (unit->modtype) {
   case ROFI_DISTANCE_MODIFIER_GROUP:
     return distance_unit_get_pixel(unit->left, ori);
@@ -1371,45 +1380,45 @@ static int distance_unit_get_pixel(RofiDistanceUnit *unit,
     return distance_unit_get_pixel(unit->left, ori) *
            distance_unit_get_pixel(unit->right, ori);
   case ROFI_DISTANCE_MODIFIER_DIVIDE: {
-    int a = distance_unit_get_pixel(unit->left, ori);
-    int b = distance_unit_get_pixel(unit->right, ori);
+    double a = distance_unit_get_pixel(unit->left, ori);
+    double b = distance_unit_get_pixel(unit->right, ori);
     if (b != 0) {
       return a / b;
     }
     return a;
   }
   case ROFI_DISTANCE_MODIFIER_MODULO: {
-    int a = distance_unit_get_pixel(unit->left, ori);
-    int b = distance_unit_get_pixel(unit->right, ori);
+    double a = distance_unit_get_pixel(unit->left, ori);
+    double b = distance_unit_get_pixel(unit->right, ori);
     if (b != 0) {
-      return a % b;
+      return fmod(a, b);
     }
     return 0;
   }
   case ROFI_DISTANCE_MODIFIER_MIN: {
-    int a = distance_unit_get_pixel(unit->left, ori);
-    int b = distance_unit_get_pixel(unit->right, ori);
+    double a = distance_unit_get_pixel(unit->left, ori);
+    double b = distance_unit_get_pixel(unit->right, ori);
     return MIN(a, b);
   }
   case ROFI_DISTANCE_MODIFIER_MAX: {
-    int a = distance_unit_get_pixel(unit->left, ori);
-    int b = distance_unit_get_pixel(unit->right, ori);
+    double a = distance_unit_get_pixel(unit->left, ori);
+    double b = distance_unit_get_pixel(unit->right, ori);
     return MAX(a, b);
   }
   case ROFI_DISTANCE_MODIFIER_ROUND: {
     double a = (double)distance_unit_get_pixel(unit->left, ori);
     double b = (double)distance_unit_get_pixel(unit->right, ori);
-    return (int)(round(a / b) * b);
+    return (double)(round(a / b) * b);
   }
   case ROFI_DISTANCE_MODIFIER_CEIL: {
     double a = (double)distance_unit_get_pixel(unit->left, ori);
     double b = (double)distance_unit_get_pixel(unit->right, ori);
-    return (int)(ceil(a / b) * b);
+    return (double)(ceil(a / b) * b);
   }
   case ROFI_DISTANCE_MODIFIER_FLOOR: {
     double a = (double)distance_unit_get_pixel(unit->left, ori);
     double b = (double)distance_unit_get_pixel(unit->right, ori);
-    return (int)(floor(a / b) * b);
+    return (double)(floor(a / b) * b);
   }
   default:
     break;
@@ -1430,16 +1439,9 @@ void distance_get_linestyle(RofiDistance d, cairo_t *draw) {
   }
 }
 
-char *rofi_theme_parse_prepare_file(const char *file, const char *parent_file) {
-  char *filename = rofi_expand_path(file);
-  // If no absolute path specified, expand it.
-  if (parent_file != NULL && !g_path_is_absolute(filename)) {
-    char *basedir = g_path_get_dirname(parent_file);
-    char *path = g_build_filename(basedir, filename, NULL);
-    g_free(filename);
-    filename = path;
-    g_free(basedir);
-  }
+char *rofi_theme_parse_prepare_file(const char *file) {
+  char *filename = g_strdup(file);
+  // TODO: Why did I write this code? I think it was to get full path.
   GFile *gf = g_file_new_for_path(filename);
   parsed_config_files = g_list_append(parsed_config_files, filename);
   filename = g_file_get_path(gf);

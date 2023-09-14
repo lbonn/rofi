@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -50,6 +50,7 @@
 #define LOG_DOMAIN "Parser"
 int last_state = 0;
 
+const char *rasi_theme_file_extensions[] = {".rasi", ".rasinc", NULL};
 /**
  * Type of Object to parse.
  */
@@ -122,6 +123,7 @@ static double rofi_theme_parse_convert_hex ( char high, char low)
                 { \
                     if ( errno != EINTR ) \
                     { \
+                        fprintf(stderr, "Failed to read input from file: %s\n", strerror(errno)); \
                         YY_FATAL_ERROR( "input in flex scanner failed" ); \
                         break; \
                     } \
@@ -161,17 +163,19 @@ static double rofi_theme_parse_convert_hex ( char high, char low)
 
 ASC     [\x00-\x7f]
 ASCN    [\x00-\t\v-\x7f]
-ASCNP   [\x00-\t\v-\x21\x23-\x7f]
+ASCNP1  [\x00-\t\v-\x21\x23-\x7f]
+ASCNP2  [\x00-\t\v-\x26\x28-\x7f]
 U       [\x80-\xbf]
 U2      [\xc2-\xdf]
 U3      [\xe0-\xef]
 U4      [\xf0-\xf4]
 
- // UANY    {ASC}|{U2}{U}|{U3}{U}{U}|{U4}{U}{U}{U}
-UANYN   {ASCN}|{U2}{U}|{U3}{U}{U}|{U4}{U}{U}{U}
- // UONLY   {U2}{U}|{U3}{U}{U}|{U4}{U}{U}{U}
+UONLY   {U2}{U}|{U3}{U}{U}|{U4}{U}{U}{U}
+ // UANY    {ASC}|{UONLY}
+UANYN   {ASCN}|{UONLY}
 
-UANYNP   {ASCNP}|{U2}{U}|{U3}{U}{U}|{U4}{U}{U}{U}
+UANYNP1   {ASCNP1}|{UONLY}
+UANYNP2   {ASCNP2}|{UONLY}
 
 WHITESPACE [[:blank:]]
 WSO        [[:blank:]]*
@@ -179,12 +183,12 @@ WORD       [[:alnum:]-]+
 WORD_ELEMENT [[:alpha:]][[:alnum:]-]*
 WORD_ENV   [[:alpha:]_][[:alnum:]_]*
 COLOR_NAME [[:alpha:]]+
-STRING     \"{UANYN}*\"
-STRING_LIST \"{UANYNP}*\"
+STRING     \"{UANYN}*\"|\'{UANYN}*\'
+STRING_LIST \"{UANYNP1}*\"|\'{UANYNP2}*\'
 CHAR       \'({ASCN}|\\\\|\\\'|\\0)\'
 HEX        [[:xdigit:]]
-NUMBER     [[:digit:]]
-PNNUMBER   [-+]?[[:digit:]]+
+NUMBER     [[:digit:]]+
+UNARYMIN   -
 PX         (px)
 MM         (mm)
 EM         (em)
@@ -198,13 +202,13 @@ ASTERIX    \*
 ENV        $\{[[:alpha:]_][[:alnum:]_]*\}
 
 MODIFIER_ADD      \+
-MODIFIER_SUBTRACT -
 MODIFIER_MULTIPLY \*
 MODIFIER_MIN      (min)
 MODIFIER_MAX      (max)
 MODIFIER_ROUND    (round)
 MODIFIER_FLOOR    (floor)
 MODIFIER_CEIL     (ceil)
+MODIFIER_MODULO	  (modulo)
 
  /* Position */
 CENTER     (?i:center)
@@ -413,8 +417,8 @@ if ( queue == NULL ) {
     yytext[yyleng-1] = '\0';
     ParseObject *top = g_queue_peek_head ( file_queue );
     g_assert ( top != NULL );
-    char *file2 = helper_get_theme_path ( &yytext[1], ".rasi" );
-    char *filename = rofi_theme_parse_prepare_file ( file2, top->filename );
+    char *file2 = helper_get_theme_path ( &yytext[1], rasi_theme_file_extensions, top->filename );
+    char *filename = rofi_theme_parse_prepare_file ( file2 );
     g_free ( file2 );
     FILE *f = fopen ( filename, "rb" );
     if ( f ) {
@@ -509,8 +513,9 @@ if ( queue == NULL ) {
 <SECTION>":"                      { g_queue_push_head ( queue, GINT_TO_POINTER (YY_START) ); BEGIN(PROPERTIES); return T_PSEP; }
 <PROPERTIES>";"                   { BEGIN(GPOINTER_TO_INT ( g_queue_pop_head ( queue ))); return T_PCLOSE;}
 <PROPERTIES,PROPERTIES_ARRAY,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT,MEDIA_ENV_VAR_CONTENT,MEDIA_ENV_VAR_DEFAULT>(true|false)          { yylval->bval= g_strcmp0(yytext, "true") == 0; return T_BOOLEAN;}
-<PROPERTIES,PROPERTIES_ARRAY,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT,MEDIA_CONTENT>{PNNUMBER}\.{NUMBER}+ { yylval->fval = g_ascii_strtod(yytext, NULL); return T_DOUBLE;}
-<PROPERTIES,PROPERTIES_ARRAY,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT,MEDIA_CONTENT>{PNNUMBER}            { yylval->ival = (int)g_ascii_strtoll(yytext, NULL, 10); return T_INT;}
+<PROPERTIES,PROPERTIES_ARRAY,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT,MEDIA_CONTENT>{NUMBER}\.{NUMBER} { yylval->fval = g_ascii_strtod(yytext, NULL); return T_DOUBLE;}
+<PROPERTIES,PROPERTIES_ARRAY,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT,MEDIA_CONTENT>{NUMBER}            { yylval->ival = (int)g_ascii_strtoll(yytext, NULL, 10); return T_INT;}
+<PROPERTIES,PROPERTIES_ARRAY,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT,MEDIA_CONTENT>{UNARYMIN}            { return T_MIN; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT>{STRING}                                             { yytext[yyleng-1] = '\0'; yylval->sval = g_strcompress(&yytext[1]); return T_STRING;}
 <PROPERTIES_ARRAY>{STRING_LIST}                                                                        { yytext[yyleng-1] = '\0'; yylval->sval = g_strcompress(&yytext[1]); return T_STRING;}
 <PROPERTIES,PROPERTIES_ARRAY,PROPERTIES_ENV,PROPERTIES_VAR_DEFAULT>{CHAR}                { yytext[yyleng-1] = '\0'; yylval->cval = g_strcompress(&yytext[1])[0]; return T_CHAR;}
@@ -538,13 +543,13 @@ if ( queue == NULL ) {
 
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{INHERIT}  { return T_INHERIT; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_ADD}       { return T_MODIFIER_ADD; }
-<PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_SUBTRACT}  { return T_MODIFIER_SUBTRACT; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_MULTIPLY}  { return T_MODIFIER_MULTIPLY; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_MIN}  { return T_MODIFIER_MIN; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_MAX}  { return T_MODIFIER_MAX; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_ROUND}  { return T_MODIFIER_ROUND; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_FLOOR}  { return T_MODIFIER_FLOOR; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_CEIL}  { return T_MODIFIER_CEIL; }
+<PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{MODIFIER_MODULO}  { return T_MODIFIER_MODULO; }
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{CALC}  { return T_CALC; }
 
 <PROPERTIES,PROPERTIES_ENV,PROPERTIES_ARRAY,PROPERTIES_VAR_DEFAULT>{ENV} {
@@ -880,8 +885,8 @@ if ( queue == NULL ) {
 
 gboolean rofi_theme_parse_file ( const char *file )
 {
-    char *file2 = helper_get_theme_path ( file, ".rasi" );
-    char *filename = rofi_theme_parse_prepare_file ( file2, NULL );
+    char *file2 = helper_get_theme_path ( file, rasi_theme_file_extensions, NULL );
+    char *filename = rofi_theme_parse_prepare_file ( file2 );
     g_free ( file2 );
 
     yyin = fopen ( filename, "rb" );

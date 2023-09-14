@@ -253,8 +253,11 @@ typedef struct _thread_state_view {
 } thread_state_view;
 
 static void wayland___create_window(MenuFlags menu_flags) {
-  // FIXME: create surface
-  // FIXME: roll next buffer
+  // In password mode, disable the entry history.
+  if ((menu_flags & MENU_PASSWORD) == MENU_PASSWORD) {
+    CacheState.entry_history_enable = FALSE;
+  }
+  input_history_initialize();
 
   TICK_N("create cairo surface");
   // TODO should we update the drawable each time?
@@ -430,6 +433,8 @@ static void wayland_rofi_view_cleanup() {
     g_source_remove(WlState.repaint_source);
     WlState.repaint_source = 0;
   }
+
+  input_history_save();
 }
 
 static void wayland_rofi_view_set_window_title(G_GNUC_UNUSED const char *title) {}

@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,7 +25,7 @@
  *
  */
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -38,8 +38,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "modes/help-keys.h"
 #include "helper.h"
+#include "modes/help-keys.h"
 #include "rofi.h"
 #include "settings.h"
 #include "widgets/textbox.h"
@@ -118,4 +118,5 @@ Mode help_keys_mode = {.name = "keys",
                        ._get_completion = NULL,
                        ._get_display_value = _get_display_value,
                        .private_data = NULL,
-                       .free = NULL};
+		       .free = NULL,
+		       .type = MODE_TYPE_SWITCHER };

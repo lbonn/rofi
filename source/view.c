@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -81,6 +81,10 @@ struct _rofi_view_cache_state CacheState = {
     .max_refilter_time = 0.0,
     .delayed_mode = FALSE,
     .user_timeout = 0,
+    .entry_history_enable = TRUE,
+    .entry_history = NULL,
+    .entry_history_length = 0,
+    .entry_history_index = 0,
 };
 
 static char *get_matching_state(void) {
@@ -136,9 +140,9 @@ static void rofi_view_reload_message_bar(RofiViewState *state) {
       GList *iter = g_list_first(list_of_warning_msgs);
       int index = 0;
       for (; iter != NULL && index < 2; iter = g_list_next(iter)) {
-        GString *msg = (GString *)(iter->data);
+        GString *in_msg = (GString *)(iter->data);
         g_string_append(emesg, "\n\n");
-        g_string_append(emesg, msg->str);
+        g_string_append(emesg, in_msg->str);
         index++;
       }
       if (g_list_length(iter) > 1) {
@@ -385,6 +389,90 @@ static void filter_elements(thread_state *ts,
   }
 }
 
+void input_history_initialize(void) {
+  if (CacheState.entry_history_enable == FALSE) {
+    return;
+  }
+  CacheState.entry_history = NULL;
+  CacheState.entry_history_index = 0;
+  CacheState.entry_history_length = 0;
+
+  gchar *path = g_build_filename(cache_dir, "rofi-entry-history.txt", NULL);
+  if (g_file_test(path, G_FILE_TEST_EXISTS)) {
+    FILE *fp = fopen(path, "r");
+    if (fp) {
+      char *line = NULL;
+      size_t len = 0;
+      ssize_t nread;
+      while ((nread = getline(&line, &len, fp)) != -1) {
+        CacheState.entry_history = g_realloc(
+            CacheState.entry_history,
+            sizeof(EntryHistoryIndex) * (CacheState.entry_history_length + 1));
+        if (line[nread - 1] == '\n') {
+          line[nread - 1] = '\0';
+          nread--;
+        }
+        CacheState.entry_history[CacheState.entry_history_length].string =
+            g_strdup(line);
+        CacheState.entry_history[CacheState.entry_history_length].index =
+            strlen(line);
+        CacheState.entry_history_length++;
+        CacheState.entry_history_index++;
+      }
+      free(line);
+      fclose(fp);
+    }
+  }
+  g_free(path);
+  CacheState.entry_history = g_realloc(
+      CacheState.entry_history,
+      sizeof(EntryHistoryIndex) * (CacheState.entry_history_length + 1));
+  CacheState.entry_history[CacheState.entry_history_length].string =
+      g_strdup("");
+  CacheState.entry_history[CacheState.entry_history_length].index = 0;
+  CacheState.entry_history_length++;
+}
+void input_history_save(void) {
+  if (CacheState.entry_history_enable == FALSE) {
+    return;
+  }
+  if (CacheState.entry_history_length > 0) {
+    // History max.
+    int max_history = 20;
+    ThemeWidget *wid = rofi_config_find_widget("entry", NULL, TRUE);
+    if (wid) {
+      Property *p =
+          rofi_theme_find_property(wid, P_INTEGER, "max-history", TRUE);
+      if (p != NULL && p->type == P_INTEGER) {
+        max_history = p->value.i;
+      }
+    }
+    gchar *path = g_build_filename(cache_dir, "rofi-entry-history.txt", NULL);
+    g_debug("Entry filename output: '%s'", path);
+    FILE *fp = fopen(path, "w");
+    if (fp) {
+      gssize start = MAX(0, (CacheState.entry_history_length - max_history));
+      for (gssize i = start; i < CacheState.entry_history_length; i++) {
+        if (strlen(CacheState.entry_history[i].string) > 0) {
+          fprintf(fp, "%s\n", CacheState.entry_history[i].string);
+        }
+      }
+      fclose(fp);
+    }
+    g_free(path);
+  }
+  // Cleanups.
+  if (CacheState.entry_history != NULL) {
+    for (ssize_t i = 0; i < CacheState.entry_history_length; i++) {
+      g_free(CacheState.entry_history[i].string);
+    }
+    g_free(CacheState.entry_history);
+    CacheState.entry_history = NULL;
+    CacheState.entry_history_length = 0;
+    CacheState.entry_history_index = 0;
+  }
+}
+
 /**
  * Nav helper functions, to avoid duplicate code.
  */
@@ -526,6 +614,7 @@ static void update_callback(textbox *t, icon *ico, unsigned int index,
       textbox_set_pango_attributes(t, list);
       pango_attr_list_unref(list);
     }
+
     g_list_free(add_list);
     g_free(text);
   } else {
@@ -739,7 +828,21 @@ void rofi_view_finalize(RofiViewState *state) {
  * This function should be called when the input of the entry is changed.
  * TODO: Evaluate if this needs to be a 'signal' on textbox?
  */
-static void rofi_view_input_changed() { rofi_view_take_action("inputchange"); }
+static void rofi_view_input_changed() {
+  rofi_view_take_action("inputchange");
+
+  RofiViewState *state = current_active_menu;
+  if (CacheState.entry_history_enable && state) {
+    if (CacheState.entry_history[CacheState.entry_history_index].string !=
+        NULL) {
+      g_free(CacheState.entry_history[CacheState.entry_history_index].string);
+    }
+    CacheState.entry_history[CacheState.entry_history_index].string =
+        textbox_get_text(state->text);
+    CacheState.entry_history[CacheState.entry_history_index].index =
+        textbox_get_cursor(state->text);
+  }
+}
 
 static void rofi_view_trigger_global_action(KeyBindingAction action) {
   RofiViewState *state = rofi_view_get_active();
@@ -1027,6 +1130,61 @@ static void rofi_view_trigger_global_action(KeyBindingAction action) {
     state->quit = TRUE;
     break;
   }
+  case ENTRY_HISTORY_DOWN: {
+    if (CacheState.entry_history_enable && state->text) {
+      CacheState.entry_history[CacheState.entry_history_index].index =
+          textbox_get_cursor(state->text);
+      if (CacheState.entry_history_index > 0) {
+        CacheState.entry_history_index--;
+      }
+      if (state->text) {
+        textbox_text(
+            state->text,
+            CacheState.entry_history[CacheState.entry_history_index].string);
+        textbox_cursor(
+            state->text,
+            CacheState.entry_history[CacheState.entry_history_index].index);
+        state->refilter = TRUE;
+      }
+    }
+    break;
+  }
+  case ENTRY_HISTORY_UP: {
+    if (CacheState.entry_history_enable && state->text) {
+      if (CacheState.entry_history[CacheState.entry_history_index].string !=
+          NULL) {
+        g_free(CacheState.entry_history[CacheState.entry_history_index].string);
+      }
+      CacheState.entry_history[CacheState.entry_history_index].string =
+          textbox_get_text(state->text);
+      CacheState.entry_history[CacheState.entry_history_index].index =
+          textbox_get_cursor(state->text);
+      // Don't create up if current is empty.
+      if (strlen(
+              CacheState.entry_history[CacheState.entry_history_index].string) >
+          0) {
+        CacheState.entry_history_index++;
+        if (CacheState.entry_history_index >= CacheState.entry_history_length) {
+          CacheState.entry_history =
+              g_realloc(CacheState.entry_history,
+                        sizeof(EntryHistoryIndex) *
+                            (CacheState.entry_history_length + 1));
+          CacheState.entry_history[CacheState.entry_history_length].string =
+              g_strdup("");
+          CacheState.entry_history[CacheState.entry_history_length].index = 0;
+          CacheState.entry_history_length++;
+        }
+      }
+      textbox_text(
+          state->text,
+          CacheState.entry_history[CacheState.entry_history_index].string);
+      textbox_cursor(
+          state->text,
+          CacheState.entry_history[CacheState.entry_history_index].index);
+      state->refilter = TRUE;
+    }
+    break;
+  }
   }
 }
 
@@ -1159,7 +1317,7 @@ void rofi_view_handle_mouse_motion(RofiViewState *state, gint x, gint y,
   }
 }
 
-static WidgetTriggerActionResult textbox_button_trigger_action(
+WidgetTriggerActionResult textbox_button_trigger_action(
     widget *wid, MouseBindingMouseDefaultAction action, G_GNUC_UNUSED gint x,
     G_GNUC_UNUSED gint y, G_GNUC_UNUSED void *user_data) {
   RofiViewState *state = (RofiViewState *)user_data;
@@ -1358,9 +1516,6 @@ static void rofi_view_add_widget(RofiViewState *state, widget *parent_widget,
     listview_set_mouse_activated_cb(
         state->list_view, rofi_view_listview_mouse_activated_cb, state);
 
-    int lines = rofi_theme_get_integer(WIDGET(state->list_view), "lines",
-                                       DEFAULT_MENU_LINES);
-    listview_set_num_lines(state->list_view, lines);
     listview_set_max_lines(state->list_view, state->num_lines);
   }
   /**
@@ -1639,8 +1794,9 @@ void rofi_view_clear_input(RofiViewState *state) {
   }
 }
 
-void rofi_view_ellipsize_start(RofiViewState *state) {
-  listview_set_ellipsize_start(state->list_view);
+void rofi_view_ellipsize_listview(RofiViewState *state,
+                                  PangoEllipsizeMode mode) {
+  listview_set_ellipsize(state->list_view, mode);
 }
 
 void rofi_view_switch_mode(RofiViewState *state, Mode *mode) {

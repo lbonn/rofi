@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -393,12 +393,42 @@ char *helper_string_replace_if_exists(char *string, ...);
 
 /**
  * @param file File name passed to option.
- * @param ext File extension passed to option.
+ * @param ext NULL terminated array of file extension passed to option.
+ * @param parent_dir The file that was used to import this file, or NULL.
  *
  * @returns path to theme or copy of filename if not found.
  */
-char *helper_get_theme_path(const char *file, const char *ext);
+char *helper_get_theme_path(const char *file, const char **ext,
+                            const char *parent_dir)
+    __attribute__((nonnull(1, 2)));
 
+/**
+ * @param name The name of the element to find.
+ * @param state The state of the element.
+ * @param exact If the match should be exact, or parent can be included.
+ *
+ * Find the configuration element. If not exact, the closest specified element
+ * is returned.
+ *
+ * @returns the ThemeWidget if found, otherwise NULL.
+ */
+ConfigEntry *rofi_config_find_widget(const char *name, const char *state,
+                                     gboolean exact);
+
+/**
+ * @param widget The widget to find the property on.
+ * @param type   The %PropertyType to find.
+ * @param property The property to find.
+ * @param exact  If the property should only be found on this widget, or on
+ * parents if not found.
+ *
+ * Find the property on the widget. If not exact, the parents are searched
+ * recursively until match is found.
+ *
+ * @returns the Property if found, otherwise NULL.
+ */
+Property *rofi_theme_find_property(ConfigEntry *widget, PropertyType type,
+                                   const char *property, gboolean exact);
 G_END_DECLS
 
 /**@} */

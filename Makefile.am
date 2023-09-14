@@ -89,6 +89,7 @@ SOURCES=\
 	source/modes/script.c\
 	source/modes/help-keys.c\
 	source/modes/filebrowser.c\
+	source/modes/recursivebrowser.c\
 	include/display.h\
 	include/xcb.h\
 	include/xcb-internal.h\
@@ -126,6 +127,7 @@ SOURCES=\
 	include/modes/modes.h\
 	include/modes/help-keys.h\
 	include/modes/filebrowser.h\
+	include/modes/recursivebrowser.h\
 	include/modes/dmenuscriptshared.h\
 	resources/resources.c\
 	resources/resources.h
@@ -145,6 +147,7 @@ rofi_CFLAGS=\
 	$(libsn_CFLAGS)\
 	$(cairo_CFLAGS)\
 	$(gdkpixbuf_CFLAGS)\
+	$(imdclient_CFLAGS)\
 	-DMANPAGE_PATH="\"$(mandir)/\""\
 	-I$(top_srcdir)/include/\
 	-I$(top_builddir)/lexer/\
@@ -165,6 +168,7 @@ rofi_LDADD=\
 	$(pango_LIBS)\
 	$(cairo_LIBS)\
 	$(gdkpixbuf_LIBS)\
+	$(imdclient_LIBS)\
 	$(LIBS)
 
 ##
@@ -212,7 +216,7 @@ theme_DATA=\
 		   themes/dmenu.rasi\
 		   themes/docu.rasi\
 		   themes/glue_pro_blue.rasi\
-		   themes/gruvbox-common.rasi\
+		   themes/gruvbox-common.rasinc\
 		   themes/gruvbox-dark-hard.rasi\
 		   themes/gruvbox-dark-soft.rasi\
 		   themes/gruvbox-dark.rasi\
@@ -227,7 +231,10 @@ theme_DATA=\
 		   themes/solarized.rasi\
 		   themes/solarized_alternate.rasi\
 		   themes/fancy.rasi\
+		   themes/fancy2.rasi\
 		   themes/iggy.rasi\
+		   themes/material.rasi\
+		   themes/fullscreen-preview.rasi\
 		   themes/iggy.jpg
 
 ##
@@ -285,6 +292,7 @@ history_test_CFLAGS=\
 	$(NKUTILS_CFLAGS)\
 	$(libsn_CFLAGS)\
 	$(cairo_CFLAGS)\
+	$(pango_CFLAGS)\
 	-DTHEME_DIR=\"$(themedir)\"\
 	-DPLUGIN_PATH=\"${libdir}/rofi\"\
 	-I$(top_srcdir)/include/\
@@ -293,6 +301,7 @@ history_test_CFLAGS=\
 
 history_test_LDADD=\
 	$(glib_LIBS)\
+	$(pango_LIBS)\
 	$(NKUTILS_LIBS)
 
 history_test_SOURCES=\
@@ -314,6 +323,7 @@ textbox_test_CFLAGS=\
 	$(cairo_CFLAGS)\
 	$(libsn_CFLAGS)\
 	$(gdkpixbuf_CFLAGS)\
+	$(pango_CFLAGS)\
 	-DPLUGIN_PATH=\"${libdir}/rofi\"\
 	-DTHEME_DIR=\"$(themedir)\"\
 	-I$(top_srcdir)/include/\
@@ -329,6 +339,7 @@ textbox_test_LDADD=\
 	$(NKUTILS_LIBS)\
 	$(GW_XCB_LIBS)\
 	$(cairo_LIBS)\
+	$(pango_LIBS)\
 	$(libsn_LIBS)
 
 helper_pidfile_CFLAGS=$(textbox_test_CFLAGS)
@@ -626,7 +637,7 @@ coverage-clean:
 .PHONY: .FORCE
 .FORCE:
 
-icondir=$(datadir)/icons/hicolor/apps/
+icondir=$(datadir)/icons/hicolor/scalable/apps/
 icon_DATA=\
 	data/rofi.svg
 
@@ -657,7 +668,6 @@ EXTRA_DIST += \
 	subprojects/libgwater/nl/libgwater-nl.c \
 	subprojects/libgwater/alsa-mixer/libgwater-alsa-mixer.h \
 	subprojects/libgwater/alsa-mixer/libgwater-alsa-mixer.c \
-	doc/meson_build_manpages.sh \
 	data/rofi.png\
 	meson_options.txt \
 	meson.build

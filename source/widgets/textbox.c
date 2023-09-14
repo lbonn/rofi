@@ -3,7 +3,7 @@
  *
  * MIT/X11 License
  * Copyright © 2012 Sean Pringle <sean.pringle@gmail.com>
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -25,13 +25,14 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+#include "config.h"
 
-#include "widgets/textbox.h"
 #include "helper-theme.h"
 #include "helper.h"
 #include "keyb.h"
 #include "mode.h"
 #include "view.h"
+#include "widgets/textbox.h"
 #include <ctype.h>
 #include <glib.h>
 #include <math.h>
@@ -357,6 +358,18 @@ void textbox_set_pango_attributes(textbox *tb, PangoAttrList *list) {
   pango_layout_set_attributes(tb->layout, list);
 }
 
+char *textbox_get_text(const textbox *tb) {
+  if (tb->text == NULL) {
+    return g_strdup("");
+  }
+  return g_strdup(tb->text);
+}
+int textbox_get_cursor(const textbox *tb) {
+  if (tb) {
+    return tb->cursor;
+  }
+  return 0;
+}
 // set the default text to display
 void textbox_text(textbox *tb, const char *text) {
   if (tb == NULL) {
@@ -480,51 +493,33 @@ static void textbox_draw(widget *wid, cairo_t *draw) {
   }
   y += top;
 
-  // TODO check if this is still needed after flatning.
-  cairo_set_operator(draw, CAIRO_OPERATOR_OVER);
+  // Set ARGB
+  // NOTE: cairo operator must be OVER at this moment,
+  // to not break subpixel text rendering.
+
   cairo_set_source_rgb(draw, 0.0, 0.0, 0.0);
+  // use text color as fallback for themes that don't specify the cursor color
   rofi_theme_get_color(WIDGET(tb), "text-color", draw);
 
-  if (tb->show_placeholder) {
-    rofi_theme_get_color(WIDGET(tb), "placeholder-color", draw);
+  { int rem =
+          MAX(0, tb->widget.w - widget_padding_get_padding_width(WIDGET(tb)) -
+                     line_width - dot_offset);
+    switch (pango_layout_get_alignment(tb->layout)) {
+    case PANGO_ALIGN_CENTER:
+      x = rem * (tb->xalign - 0.5);
+      break;
+    case PANGO_ALIGN_RIGHT:
+      x = rem * (tb->xalign - 1.0);
+      break;
+    default:
+      x = rem * tb->xalign + dot_offset;
+      break;
+    }
+    x += widget_padding_get_left(WIDGET(tb));
   }
-  // Set ARGB
-  // We need to set over, otherwise subpixel hinting wont work.
-  switch (pango_layout_get_alignment(tb->layout)) {
-  case PANGO_ALIGN_CENTER: {
-    int rem =
-        MAX(0, tb->widget.w - widget_padding_get_padding_width(WIDGET(tb)) -
-                   line_width - dot_offset);
-    x = (tb->xalign - 0.5) * rem + widget_padding_get_left(WIDGET(tb));
-    cairo_move_to(draw, x, top);
-    break;
-  }
-  case PANGO_ALIGN_RIGHT: {
-    int rem =
-        MAX(0, tb->widget.w - widget_padding_get_padding_width(WIDGET(tb)) -
-                   line_width - dot_offset);
-    x = -(1.0 - tb->xalign) * rem + widget_padding_get_left(WIDGET(tb));
-    cairo_move_to(draw, x, top);
-    break;
-  }
-  default: {
-    int rem =
-        MAX(0, tb->widget.w - widget_padding_get_padding_width(WIDGET(tb)) -
-                   line_width - dot_offset);
-    x = tb->xalign * rem + widget_padding_get_left(WIDGET(tb));
-    x += dot_offset;
-    cairo_move_to(draw, x, top);
-    break;
-  }
-  }
-  cairo_save(draw);
-  cairo_reset_clip(draw);
-  pango_cairo_show_layout(draw, tb->layout);
-  cairo_restore(draw);
 
   // draw the cursor
-  rofi_theme_get_color(WIDGET(tb), "text-color", draw);
-  if (tb->flags & TB_EDITABLE && tb->blink) {
+  if (tb->flags & TB_EDITABLE) {
     // We want to place the cursor based on the text shown.
     const char *text = pango_layout_get_text(tb->layout);
     // Clamp the position, should not be needed, but we are paranoid.
@@ -536,11 +531,60 @@ static void textbox_draw(widget *wid, cairo_t *draw) {
     int cursor_x = pos.x / PANGO_SCALE;
     int cursor_y = pos.y / PANGO_SCALE;
     int cursor_height = pos.height / PANGO_SCALE;
-    int cursor_width = 2;
-    cairo_rectangle(draw, x + cursor_x, y + cursor_y, cursor_width,
-                    cursor_height);
-    cairo_fill(draw);
+    RofiDistance cursor_width =
+        rofi_theme_get_distance(WIDGET(tb), "cursor-width", 2);
+    int cursor_pixel_width =
+        distance_get_pixel(cursor_width, ROFI_ORIENTATION_HORIZONTAL);
+    if ((x + cursor_x) != tb->cursor_x_pos) {
+      tb->cursor_x_pos = x + cursor_x;
+    }
+    if (tb->blink) {
+      // use text color as fallback for themes that don't specify the cursor
+      // color
+      rofi_theme_get_color(WIDGET(tb), "cursor-color", draw);
+      cairo_rectangle(draw, x + cursor_x, y + cursor_y, cursor_pixel_width,
+                      cursor_height);
+      if (rofi_theme_get_boolean(WIDGET(tb), "cursor-outline", FALSE)) {
+        cairo_fill_preserve(draw);
+        rofi_theme_get_color(WIDGET(tb), "cursor-outline-color", draw);
+        double width =
+            rofi_theme_get_double(WIDGET(tb), "cursor-outline-width", 0.5);
+        cairo_set_line_width(draw, width);
+        cairo_stroke(draw);
+      } else {
+        cairo_fill(draw);
+      }
+    }
   }
+
+  // draw the text
+  cairo_save(draw);
+  double x1, y1, x2, y2;
+  cairo_clip_extents(draw, &x1, &y1, &x2, &y2);
+  cairo_reset_clip(draw);
+  cairo_rectangle(draw, x1, y1, x2 - x1, y2 - y1);
+  cairo_clip(draw);
+
+  gboolean show_outline;
+  if (tb->show_placeholder) {
+    rofi_theme_get_color(WIDGET(tb), "placeholder-color", draw);
+    show_outline = FALSE;
+  } else {
+    show_outline = rofi_theme_get_boolean(WIDGET(tb), "text-outline", FALSE);
+  }
+  cairo_move_to(draw, x, top);
+  pango_cairo_show_layout(draw, tb->layout);
+
+  if (show_outline) {
+    rofi_theme_get_color(WIDGET(tb), "text-outline-color", draw);
+    double width = rofi_theme_get_double(WIDGET(tb), "text-outline-width", 0.5);
+    cairo_move_to(draw, x, top);
+    pango_cairo_layout_path(draw, tb->layout);
+    cairo_set_line_width(draw, width);
+    cairo_stroke(draw);
+  }
+
+  cairo_restore(draw);
 }
 
 // cursor handling for edit mode
@@ -848,12 +892,21 @@ gboolean textbox_append_text(textbox *tb, const char *pad, const int pad_len) {
   const gchar *w, *n, *e;
   for (w = pad, n = g_utf8_next_char(w), e = w + pad_len; w < e;
        w = n, n = g_utf8_next_char(n)) {
-    if (g_unichar_iscntrl(g_utf8_get_char(w))) {
-      continue;
+    gunichar c = g_utf8_get_char(w);
+    if (g_unichar_isspace(c)) {
+      /** Replace tabs, newlines and others with a normal space. */
+      textbox_insert(tb, tb->cursor, " ", 1);
+      textbox_cursor(tb, tb->cursor + 1);
+      used_something = TRUE;
+    } else if (g_unichar_iscntrl(c)) {
+      /* skip control characters. */
+      g_info("Got an invalid character: %08X", c);
+    } else {
+      /** Insert the text */
+      textbox_insert(tb, tb->cursor, w, n - w);
+      textbox_cursor(tb, tb->cursor + 1);
+      used_something = TRUE;
     }
-    textbox_insert(tb, tb->cursor, w, n - w);
-    textbox_cursor(tb, tb->cursor + 1);
-    used_something = TRUE;
   }
   return used_something;
 }
@@ -991,4 +1044,10 @@ void textbox_set_ellipsize(textbox *tb, PangoEllipsizeMode mode) {
       widget_queue_redraw(WIDGET(tb));
     }
   }
+}
+int textbox_get_cursor_x_pos(const textbox *tb) {
+  if (tb == NULL) {
+    return 0;
+  }
+  return tb->cursor_x_pos;
 }

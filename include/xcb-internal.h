@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -32,6 +32,7 @@
 #include <glib.h>
 #include <libsn/sn.h>
 
+#include "xcb.h"
 #include <libgwater-xcb.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_ewmh.h>
@@ -45,6 +46,10 @@ struct _xcb_stuff {
   GMainLoop *main_loop;
   GWaterXcbSource *source;
   xcb_connection_t *connection;
+#ifdef XCB_IMDKIT
+  xcb_xic_t ic;
+  xcb_xim_t *im;
+#endif
   xcb_ewmh_connection_t ewmh;
   xcb_screen_t *screen;
   int screen_nbr;

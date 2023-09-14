@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -83,10 +83,13 @@ void dmenuscript_parse_entry_extras(G_GNUC_UNUSED Mode *sw,
                                     DmenuScriptEntry *entry, char *buffer,
                                     G_GNUC_UNUSED size_t length) {
   gchar **extras = g_strsplit(buffer, "\x1f", -1);
-  gchar **extra;
-  for (extra = extras; *extra != NULL && *(extra + 1) != NULL; extra += 2) {
+  gchar **extra = extras;
+  for (; *extra != NULL && *(extra + 1) != NULL; extra += 2) {
     gchar *key = *extra;
     gchar *value = *(extra + 1);
+    // Mark NULL
+    *(extra) = NULL;
+    *(extra + 1) = NULL;
     if (strcasecmp(key, "icon") == 0) {
       entry->icon_name = value;
     } else if (strcasecmp(key, "meta") == 0) {
@@ -94,12 +97,22 @@ void dmenuscript_parse_entry_extras(G_GNUC_UNUSED Mode *sw,
     } else if (strcasecmp(key, "info") == 0) {
       entry->info = value;
     } else if (strcasecmp(key, "nonselectable") == 0) {
-      entry->nonselectable = strcasecmp(value, "true") == 0;
+      entry->nonselectable = g_ascii_strcasecmp(value, "true") == 0;
+      g_free(value);
+    } else if (strcasecmp(key, "urgent") == 0) {
+      entry->urgent = g_ascii_strcasecmp(value, "true") == 0;
+      g_free(value);
+    } else if (strcasecmp(key, "active") == 0) {
+      entry->active = g_ascii_strcasecmp(value, "true") == 0;
       g_free(value);
     } else {
       g_free(value);
     }
     g_free(key);
+  }
+  // Got an extra entry.. lets free it.
+  if (*extras != NULL) {
+    g_free(*extras);
   }
   g_free(extras);
 }
@@ -231,6 +244,8 @@ static DmenuScriptEntry *execute_executor(Mode *sw, char *arg,
             retv[(*length)].icon_name = NULL;
             retv[(*length)].meta = NULL;
             retv[(*length)].info = NULL;
+            retv[(*length)].active = FALSE;
+            retv[(*length)].urgent = FALSE;
             retv[(*length)].icon_fetch_uid = 0;
             retv[(*length)].icon_fetch_size = 0;
             retv[(*length)].icon_fetch_scale = 0;
@@ -240,7 +255,7 @@ static DmenuScriptEntry *execute_executor(Mode *sw, char *arg,
                                              buffer + buf_length,
                                              read_length - buf_length);
             }
-            retv[(*length) + 1].entry = NULL;
+            memset(&(retv[(*length) + 1]), 0, sizeof(DmenuScriptEntry));
             (*length)++;
           }
         }
@@ -327,8 +342,7 @@ static ModeMode script_mode_result(Mode *sw, int mretv, char **input,
     new_list =
         execute_executor(sw, rmpd->cmd_list[selected_line].entry, &new_length,
                          1, &(rmpd->cmd_list[selected_line]));
-  } else if ((mretv & MENU_CUSTOM_INPUT) && *input != NULL &&
-             *input[0] != '\0') {
+  } else if ((mretv & MENU_CUSTOM_INPUT) && *input != NULL) {
     if (rmpd->no_custom == FALSE) {
       script_mode_reset_highlight(sw);
       new_list = execute_executor(sw, *input, &new_length, 2, NULL);
@@ -343,6 +357,7 @@ static ModeMode script_mode_result(Mode *sw, int mretv, char **input,
       g_free(rmpd->cmd_list[i].entry);
       g_free(rmpd->cmd_list[i].icon_name);
       g_free(rmpd->cmd_list[i].meta);
+      g_free(rmpd->cmd_list[i].info);
     }
     g_free(rmpd->cmd_list);
 
@@ -414,6 +429,12 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
       *state |= URGENT;
     }
   }
+  if (pd->cmd_list[selected_line].urgent) {
+    *state |= URGENT;
+  }
+  if (pd->cmd_list[selected_line].active) {
+    *state |= ACTIVE;
+  }
   if (pd->do_markup) {
     *state |= MARKUP;
   }
@@ -423,22 +444,36 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
 static int script_token_match(const Mode *sw, rofi_int_matcher **tokens,
                               unsigned int index) {
   ScriptModePrivateData *rmpd = sw->private_data;
-  int match = 1;
-  if (tokens) {
-    for (int j = 0; match && tokens[j] != NULL; j++) {
-      rofi_int_matcher *ftokens[2] = {tokens[j], NULL};
-      int test = 0;
-      test = helper_token_match(ftokens, rmpd->cmd_list[index].entry);
-      if (test == tokens[j]->invert && rmpd->cmd_list[index].meta) {
-        test = helper_token_match(ftokens, rmpd->cmd_list[index].meta);
-      }
+  /** Strip out the markup when matching. */
+  char *esc = NULL;
+  if (rmpd->do_markup) {
+    pango_parse_markup(rmpd->cmd_list[index].entry, -1, 0, NULL, &esc, NULL,
+                       NULL);
+  } else {
+    esc = rmpd->cmd_list[index].entry;
+  }
+  if (esc) {
+    int match = 1;
+    if (tokens) {
+      for (int j = 0; match && tokens[j] != NULL; j++) {
+        rofi_int_matcher *ftokens[2] = {tokens[j], NULL};
+        int test = 0;
+        test = helper_token_match(ftokens, esc);
+        if (test == tokens[j]->invert && rmpd->cmd_list[index].meta) {
+          test = helper_token_match(ftokens, rmpd->cmd_list[index].meta);
+        }
 
-      if (test == 0) {
-        match = 0;
+        if (test == 0) {
+          match = 0;
+        }
       }
     }
+    if (rmpd->do_markup) {
+      g_free(esc);
+    }
+    return match;
   }
-  return match;
+  return FALSE;
 }
 static char *script_get_message(const Mode *sw) {
   ScriptModePrivateData *pd = sw->private_data;
@@ -466,12 +501,19 @@ static cairo_surface_t *script_get_icon(const Mode *sw,
 
 #include "mode-private.h"
 
+/** Structure that holds a user script
+ * found in $config/rofi/scripts/
+ */
 typedef struct ScriptUser {
+  /** name of the script */
   char *name;
+  /** path to the script. */
   char *path;
 } ScriptUser;
 
+/** list of user_scripts. */
 ScriptUser *user_scripts = NULL;
+/** number of user scripts collected */
 size_t num_scripts = 0;
 
 void script_mode_cleanup(void) {
@@ -504,6 +546,7 @@ void script_mode_gather_user_scripts(void) {
       }
       num_scripts++;
     }
+    g_dir_close(sd);
   }
 
   g_free(script_dir);
@@ -535,16 +578,17 @@ Mode *script_mode_parse_setup(const char *str) {
     sw->_get_icon = script_get_icon;
     sw->_get_completion = NULL, sw->_preprocess_input = NULL,
     sw->_get_display_value = _get_display_value;
+    sw->type = MODE_TYPE_SWITCHER;
     return sw;
   }
   Mode *sw = g_malloc0(sizeof(*sw));
   unsigned int index = 0;
   const char *const sep = ":";
   char **tokens = g_strsplit(str, sep, 2);
-  if ( tokens ){
+  if (tokens) {
     index = g_strv_length(tokens);
     sw->name = g_strdup(tokens[0]);
-    sw->ed = (void*)rofi_expand_path(tokens[1]);
+    sw->ed = (void *)rofi_expand_path(tokens[1]);
     g_strfreev(tokens);
   }
   if (index == 2) {
@@ -558,6 +602,7 @@ Mode *script_mode_parse_setup(const char *str) {
     sw->_get_icon = script_get_icon;
     sw->_get_completion = NULL, sw->_preprocess_input = NULL,
     sw->_get_display_value = _get_display_value;
+    sw->type = MODE_TYPE_SWITCHER;
 
     return sw;
   }

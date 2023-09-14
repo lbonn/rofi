@@ -81,6 +81,21 @@ configuration {
 .fi
 .RE
 
+.SH Unsetting a binding
+.PP
+To unset a binding, pass an empty string.
+
+.PP
+.RS
+
+.nf
+configuration {
+  kb-clear-line: "";
+}
+
+.fi
+.RE
+
 .SH Keyboard Bindings
 .SS \fBkb-primary-paste\fP:
 .PP
@@ -283,14 +298,14 @@ Select next entry
 Go to next row, if one left, accept it, if no left next mode.
 
 .PP
-\fBDefault\fP: 	
+\fBDefault\fP:
 
 .SS \fBkb-element-next\fP
 .PP
 Go to next row.
 
 .PP
-\fBDefault\fP: Tab	
+\fBDefault\fP: Tab
 
 .SS \fBkb-element-prev\fP
 .PP
@@ -357,7 +372,7 @@ Toggle case sensitivity
 
 .SS \fBkb-toggle-sort\fP
 .PP
-Toggle sort
+Toggle filtered menu sort
 
 .PP
 \fBDefault\fP: 	Alt+grave
@@ -571,6 +586,20 @@ Select row 10
 
 .PP
 \fBDefault\fP: 	Super+0
+
+.SS \fBkb-entry-history-up\fP
+.PP
+Go up in the entry history.
+
+.PP
+\fBDefault\fP:    Control+Up
+
+.SS \fBkb-entry-history-down\fP
+.PP
+Go down in the entry history.
+
+.PP
+\fBDefault\fP:    Control+Down
 
 .SH Mouse Bindings
 .SS \fBml-row-left\fP

@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,11 +24,12 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+#include "config.h"
 #include "rofi.h"
 #include "xrmoptions.h"
 #include <glib.h>
+#include <nkutils-bindings.h>
 #include <string.h>
-#include "nkutils-bindings.h"
 
 typedef struct {
   guint id;
@@ -323,6 +324,14 @@ ActionBindingEntry rofi_bindings[] = {
      .name = "kb-select-10",
      .binding = "Super+0",
      .comment = "Select row 10"},
+    {.id = ENTRY_HISTORY_UP,
+     .name = "kb-entry-history-up",
+     .binding = "Control+Up",
+     .comment = "Go up in the history of the entry box"},
+    {.id = ENTRY_HISTORY_DOWN,
+     .name = "kb-entry-history-down",
+     .binding = "Control+Down",
+     .comment = "Go down in the history of the entry box"},
 
     /* Mouse-aware bindings */
 
@@ -372,7 +381,7 @@ static const gchar *mouse_default_bindings[] = {
     [MOUSE_DCLICK_UP] = "!MouseDPrimary",
 };
 
-void abe_list_all_bindings(gboolean is_term ) {
+void abe_list_all_bindings(gboolean is_term) {
 
   int length = 0;
   for (gsize i = 0; i < G_N_ELEMENTS(rofi_bindings); ++i) {
@@ -383,9 +392,10 @@ void abe_list_all_bindings(gboolean is_term ) {
   for (gsize i = 0; i < G_N_ELEMENTS(rofi_bindings); ++i) {
     ActionBindingEntry *b = &rofi_bindings[i];
     if (is_term) {
-	    printf("%s%*s%s - %s\n", color_bold,length, b->name, color_reset,b->binding);
+      printf("%s%*s%s - %s\n", color_bold, length, b->name, color_reset,
+             b->binding);
     } else {
-	    printf("%*s - %s\n", length, b->name, b->binding);
+      printf("%*s - %s\n", length, b->name, b->binding);
     }
   }
 }
@@ -439,22 +449,25 @@ gboolean parse_keys_abe(NkBindings *bindings) {
       if (!nk_bindings_add_binding(bindings, b->scope, entry,
                                    binding_check_action, binding_trigger_action,
                                    GUINT_TO_POINTER(b->id), NULL, &error)) {
-	if ( error->code == NK_BINDINGS_ERROR_ALREADY_REGISTERED && error->domain == NK_BINDINGS_ERROR){
-		char *str = g_markup_printf_escaped(
-				"Failed to set binding <i>%s</i> for: <i>%s (%s)</i>:\n\t<span "
-				"size=\"smaller\" style=\"italic\">Binding `%s` is already bound.\n"
-				"\tExecute <b>rofi -list-keybindings</b> to get the current list of configured bindings.</span>\n",
-				b->binding, b->comment, b->name, entry);
-		g_string_append(error_msg, str);
-		g_free(str);
-	} else {
-		char *str = g_markup_printf_escaped(
-				"Failed to set binding <i>%s</i> for: <i>%s (%s)</i>:\n\t<span "
-				"size=\"smaller\" style=\"italic\">%s</span>\n",
-				b->binding, b->comment, b->name, error->message);
-		g_string_append(error_msg, str);
-		g_free(str);
-	}
+        if (error->code == NK_BINDINGS_ERROR_ALREADY_REGISTERED &&
+            error->domain == NK_BINDINGS_ERROR) {
+          char *str = g_markup_printf_escaped(
+              "Failed to set binding <i>%s</i> for: <i>%s (%s)</i>:\n\t<span "
+              "size=\"smaller\" style=\"italic\">Binding `%s` is already "
+              "bound.\n"
+              "\tExecute <b>rofi -list-keybindings</b> to get the current list "
+              "of configured bindings.</span>\n",
+              b->binding, b->comment, b->name, entry);
+          g_string_append(error_msg, str);
+          g_free(str);
+        } else {
+          char *str = g_markup_printf_escaped(
+              "Failed to set binding <i>%s</i> for: <i>%s (%s)</i>:\n\t<span "
+              "size=\"smaller\" style=\"italic\">%s</span>\n",
+              b->binding, b->comment, b->name, error->message);
+          g_string_append(error_msg, str);
+          g_free(str);
+        }
         g_clear_error(&error);
       }
     }

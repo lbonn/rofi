@@ -88,5 +88,22 @@ body:
       label: "Additional information"
     validations:
       required: false
+  - type: checkboxes
+    id: wayland
+    attributes:
+      label: Using wayland display server protocol
+      description: I have checked and confirm that I am not using wayland as display server protocol. See [here](https://github.com/DaveDavenport/rofi/wiki/Wayland) for more        information.
+      options:
+        - label: "No, I don't use the wayland display server protocol"
+          required: true
+  - type: checkboxes
+    id: latestversion
+    attributes:
+      label: I've checked if the issue exists in the latest stable release
+      description: I confirm that I verified the issue still exists in the latest stable release. 
+      options:
+        - label: "Yes, I have checked the problem exists in the latest stable version"
+          required: true
+      
 
 

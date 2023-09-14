@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -111,7 +111,9 @@ struct RofiViewState {
   /** filtered rows */
   textbox *tb_filtered_rows;
 
+  /** Extra icon widget that shows the current selected entries text. */
   textbox *tb_current_entry;
+  /** Extra icon widget that shows the current selected entries icon. */
   icon *icon_current_entry;
 
   /** Settings of the menu */
@@ -186,6 +188,11 @@ typedef struct _view_proxy {
   void (*pool_refresh)();
 } view_proxy;
 
+typedef struct {
+  char *string;
+  int index;
+} EntryHistoryIndex;
+
 /**
  * Structure holding cached state.
  */
@@ -198,12 +205,24 @@ struct _rofi_view_cache_state {
   GQueue views;
   /** timeout for reloading */
   guint refilter_timeout;
+  /* amount of time refiltering delay got reset */
   guint refilter_timeout_count;
 
+  /** if filtering takes longer then this time,
+   * reduce the amount of refilters. */
   double max_refilter_time;
+  /** enable the reduced refilter mode. */
   gboolean delayed_mode;
   /** timeout handling */
   guint user_timeout;
+  /** Entry box */
+  gboolean entry_history_enable;
+  /** Array with history entriy input. */
+  EntryHistoryIndex *entry_history;
+  /** Length of the array */
+  gssize entry_history_length;
+  /** The current index being viewed. */
+  gssize entry_history_index;
 };
 extern struct _rofi_view_cache_state CacheState;
 

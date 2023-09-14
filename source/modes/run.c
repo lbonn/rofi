@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -33,7 +33,7 @@
 /** The log domain of this dialog. */
 #define G_LOG_DOMAIN "Modes.Run"
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -441,8 +441,8 @@ static ModeMode run_mode_result(Mode *sw, int mretv, char **input,
       retv = MODE_EXIT;
     } else {
       char *path = NULL;
-      retv = file_browser_mode_completer(rmpd->completer, mretv, input,
-                                         selected_line, &path);
+      retv = mode_completer_result(rmpd->completer, mretv, input, selected_line,
+                                   &path);
       if (retv == MODE_EXIT) {
         if (path == NULL) {
           exec_cmd(rmpd->cmd_list[rmpd->selected_line].entry, run_in_term);
@@ -489,9 +489,12 @@ static ModeMode run_mode_result(Mode *sw, int mretv, char **input,
         g_free(*input);
       *input = g_strdup(rmpd->old_completer_input);
 
-      rmpd->completer = create_new_file_browser();
-      mode_init(rmpd->completer);
-      rmpd->file_complete = TRUE;
+      const Mode *comp = rofi_get_completer();
+      if (comp) {
+        rmpd->completer = mode_create(comp);
+        mode_init(rmpd->completer);
+        rmpd->file_complete = TRUE;
+      }
     }
   }
   return retv;
@@ -576,5 +579,6 @@ Mode run_mode = {.name = "run",
                  ._get_completion = NULL,
                  ._preprocess_input = NULL,
                  .private_data = NULL,
-                 .free = NULL};
+                 .free = NULL,
+                 .type = MODE_TYPE_SWITCHER};
 /** @}*/

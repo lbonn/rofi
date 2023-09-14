@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -28,7 +28,7 @@
 /** The log domain of this dialog. */
 #define G_LOG_DOMAIN "Modes.DRun"
 
-#include <config.h>
+#include "config.h"
 #ifdef ENABLE_DRUN
 #include <limits.h>
 #include <stdio.h>
@@ -236,7 +236,9 @@ static gboolean drun_helper_eval_cb(const GMatchInfo *info, GString *res,
     case 'F':
     case 'u':
     case 'U':
-      g_string_append(res, e->path);
+      if (e->path) {
+        g_string_append(res, e->path);
+      }
       break;
     // Unsupported
     case 'i':
@@ -711,7 +713,7 @@ static void read_desktop_file(DRunModePrivateData *pd, const char *root,
  * Internal spider used to get list of executables.
  */
 static void walk_dir(DRunModePrivateData *pd, const char *root,
-                     const char *dirname) {
+                     const char *dirname, const gboolean recursive) {
   DIR *dir;
 
   g_debug("Checking directory %s for desktop files.", dirname);
@@ -759,7 +761,9 @@ static void walk_dir(DRunModePrivateData *pd, const char *root,
       }
       break;
     case DT_DIR:
-      walk_dir(pd, root, filename);
+      if (recursive) {
+        walk_dir(pd, root, filename, recursive);
+      }
       break;
     default:
       break;
@@ -1006,13 +1010,23 @@ static void get_apps(DRunModePrivateData *pd) {
   if (drun_read_cache(pd, cache_file)) {
     ThemeWidget *wid = rofi_config_find_widget(drun_mode.name, NULL, TRUE);
 
+    /** Load desktop entries */
+    Property *p =
+        rofi_theme_find_property(wid, P_BOOLEAN, "scan-desktop", FALSE);
+    if (p != NULL && (p->type == P_BOOLEAN && p->value.b)) {
+      const gchar *dir;
+      // First read the user directory.
+      dir = g_get_user_special_dir(G_USER_DIRECTORY_DESKTOP);
+      walk_dir(pd, dir, dir, FALSE);
+      TICK_N("Get Desktop dir apps");
+    }
     /** Load user entires */
-    Property *p = rofi_theme_find_property(wid, P_BOOLEAN, "parse-user", TRUE);
+    p = rofi_theme_find_property(wid, P_BOOLEAN, "parse-user", TRUE);
     if (p == NULL || (p->type == P_BOOLEAN && p->value.b)) {
       gchar *dir;
       // First read the user directory.
       dir = g_build_filename(g_get_user_data_dir(), "applications", NULL);
-      walk_dir(pd, dir, dir);
+      walk_dir(pd, dir, dir, TRUE);
       g_free(dir);
       TICK_N("Get Desktop apps (user dir)");
     }
@@ -1033,7 +1047,7 @@ static void get_apps(DRunModePrivateData *pd) {
         // Check, we seem to be getting empty string...
         if (unique && (**iter) != '\0') {
           char *dir = g_build_filename(*iter, "applications", NULL);
-          walk_dir(pd, dir, dir);
+          walk_dir(pd, dir, dir, TRUE);
           g_free(dir);
         }
       }
@@ -1169,8 +1183,8 @@ static ModeMode drun_mode_result(Mode *sw, int mretv, char **input,
       retv = MODE_EXIT;
     } else {
       char *path = NULL;
-      retv = file_browser_mode_completer(rmpd->completer, mretv, input,
-                                         selected_line, &path);
+      retv = mode_completer_result(rmpd->completer, mretv, input, selected_line,
+                                   &path);
       if (retv == MODE_EXIT) {
         exec_cmd_entry(&(rmpd->entry_list[rmpd->selected_line]), path);
       }
@@ -1234,9 +1248,12 @@ static ModeMode drun_mode_result(Mode *sw, int mretv, char **input,
             g_free(*input);
           *input = g_strdup(rmpd->old_completer_input);
 
-          rmpd->completer = create_new_file_browser();
-          mode_init(rmpd->completer);
-          rmpd->file_complete = TRUE;
+          const Mode *comp = rofi_get_completer();
+          if (comp) {
+            rmpd->completer = mode_create(comp);
+            mode_init(rmpd->completer);
+            rmpd->file_complete = TRUE;
+          }
         }
         g_regex_unref(regex);
       }
@@ -1322,11 +1339,12 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
   char *retv = helper_string_replace_if_exists(
       config.drun_display_format, "{generic}", egn, "{name}", en, "{comment}",
       ec, "{exec}", dr->exec, "{categories}", cats, "{keywords}", keywords,
-      NULL);
+      (char *)0);
   g_free(egn);
   g_free(en);
   g_free(ec);
   g_free(cats);
+  g_free(keywords);
   return retv;
 }
 
@@ -1472,6 +1490,7 @@ Mode drun_mode = {.name = "drun",
                   ._get_icon = _get_icon,
                   ._preprocess_input = NULL,
                   .private_data = NULL,
-                  .free = NULL};
+                  .free = NULL,
+                  .type = MODE_TYPE_SWITCHER};
 
 #endif // ENABLE_DRUN

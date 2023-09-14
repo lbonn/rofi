@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -243,8 +243,9 @@ static char *combi_mgrv(const Mode *sw, unsigned int selected_line, int *state,
           *state |= MARKUP;
         }
 
-        retv = helper_string_replace_if_exists(
-            config.combi_display_format, "{mode}", dname, "{text}", str, NULL);
+        retv = helper_string_replace_if_exists(config.combi_display_format,
+                                               "{mode}", dname, "{text}", str,
+                                               (char *)0);
         g_free(str);
 
         if (attr_list != NULL) {
@@ -341,4 +342,5 @@ Mode combi_mode = {.name = "combi",
                    ._get_icon = combi_get_icon,
                    ._preprocess_input = combi_preprocess_input,
                    .private_data = NULL,
-                   .free = NULL};
+		   .free = NULL,
+		   .type = MODE_TYPE_SWITCHER };

@@ -38,6 +38,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef XCB_IMDKIT
+#include <xcb-imdkit/encoding.h>
+#endif
 #include <xcb/xcb_ewmh.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xkb.h>
@@ -45,6 +48,7 @@
 
 #include <cairo-xcb.h>
 #include <cairo.h>
+#include <gio/gio.h>
 
 /** Indicated we understand the startup notification api is not yet stable.*/
 #define SN_API_NOT_YET_FROZEN
@@ -74,6 +78,20 @@ static int xcb_rofi_view_calculate_window_height(RofiViewState *state);
 static void xcb_rofi_view_set_window_title(const char *title);
 
 static void xcb_rofi_view_queue_redraw(void);
+
+#ifdef XCB_IMDKIT
+static void xim_commit_string(xcb_xim_t *im, G_GNUC_UNUSED xcb_xic_t ic,
+                              G_GNUC_UNUSED uint32_t flag, char *str,
+                              uint32_t length, G_GNUC_UNUSED uint32_t *keysym,
+                              G_GNUC_UNUSED size_t nKeySym,
+                              G_GNUC_UNUSED void *user_data);
+static void xim_disconnected(G_GNUC_UNUSED xcb_xim_t *im,
+                             G_GNUC_UNUSED void *user_data);
+xcb_xim_im_callback xim_callback = {.forward_event =
+                                        x11_event_handler_fowarding,
+                                    .commit_string = xim_commit_string,
+                                    .disconnected = xim_disconnected};
+#endif
 
 /** Thread pool used for filtering */
 extern GThreadPool *tpool;
@@ -260,21 +278,29 @@ static void xcb_rofi_view_update(RofiViewState *state, gboolean qr) {
       cairo_set_source_surface(d, XcbState.fake_bg, 0.0, 0.0);
     } else {
       cairo_set_source_surface(d, XcbState.fake_bg,
-                               -(double)(state->x - XcbState.mon.x),
-                               -(double)(state->y - XcbState.mon.y));
+                               (double)(XcbState.mon.x - state->x),
+                               (double)(XcbState.mon.y - state->y));
     }
-    cairo_paint(d);
-    cairo_set_operator(d, CAIRO_OPERATOR_OVER);
   } else {
     // Paint the background transparent.
     cairo_set_source_rgba(d, 0, 0, 0, 0.0);
-    cairo_paint(d);
   }
-  TICK_N("Background");
+  cairo_paint(d);
 
   // Always paint as overlay over the background.
   cairo_set_operator(d, CAIRO_OPERATOR_OVER);
+
+  TICK_N("Background");
   widget_draw(WIDGET(state->main_window), d);
+
+  // TODO
+#ifdef XCB_IMDKIT
+  int x = widget_get_x_pos(&state->text->widget) +
+          textbox_get_cursor_x_pos(state->text);
+  int y = widget_get_y_pos(&state->text->widget) +
+          widget_get_height(&state->text->widget);
+  rofi_set_im_window_pos(x, y);
+#endif
 
   TICK_N("widgets");
   cairo_surface_flush(XcbState.edit_surf);
@@ -571,7 +597,94 @@ xcb_rofi_view_setup_fake_transparency(widget *win,
     TICK_N("Fake transparency");
   }
 }
+
+#ifdef XCB_IMDKIT
+static void xim_commit_string(xcb_xim_t *im, G_GNUC_UNUSED xcb_xic_t ic,
+                              G_GNUC_UNUSED uint32_t flag, char *str,
+                              uint32_t length, G_GNUC_UNUSED uint32_t *keysym,
+                              G_GNUC_UNUSED size_t nKeySym,
+                              G_GNUC_UNUSED void *user_data) {
+  RofiViewState *state = rofi_view_get_active();
+  if (state == NULL) {
+    return;
+  }
+
+#ifndef XCB_IMDKIT_1_0_3_LOWER
+  if (xcb_xim_get_encoding(im) == XCB_XIM_UTF8_STRING) {
+    rofi_view_handle_text(state, str);
+  } else if (xcb_xim_get_encoding(im) == XCB_XIM_COMPOUND_TEXT) {
+    size_t newLength = 0;
+    char *utf8 = xcb_compound_text_to_utf8(str, length, &newLength);
+    if (utf8) {
+      rofi_view_handle_text(state, utf8);
+    }
+  }
+#else
+  size_t newLength = 0;
+  char *utf8 = xcb_compound_text_to_utf8(str, length, &newLength);
+  if (utf8) {
+    rofi_view_handle_text(state, utf8);
+  }
+#endif
+}
+
+static void xim_disconnected(G_GNUC_UNUSED xcb_xim_t *im,
+                             G_GNUC_UNUSED void *user_data) {
+  xcb->ic = 0;
+}
+
+static void create_ic_callback(xcb_xim_t *im, xcb_xic_t new_ic,
+                               G_GNUC_UNUSED void *user_data) {
+  xcb->ic = new_ic;
+  if (xcb->ic) {
+    xcb_xim_set_ic_focus(im, xcb->ic);
+  }
+}
+
+gboolean rofi_set_im_window_pos(int new_x, int new_y) {
+  if (!xcb->ic)
+    return false;
+
+  static xcb_point_t spot = {.x = 0, .y = 0};
+  if (spot.x != new_x || spot.y != new_y) {
+    spot.x = new_x;
+    spot.y = new_y;
+    xcb_xim_nested_list nested = xcb_xim_create_nested_list(
+        xcb->im, XCB_XIM_XNSpotLocation, &spot, NULL);
+    xcb_xim_set_ic_values(xcb->im, xcb->ic, NULL, NULL, XCB_XIM_XNClientWindow,
+                          &CacheState.main_window, XCB_XIM_XNFocusWindow,
+                          &CacheState.main_window, XCB_XIM_XNPreeditAttributes,
+                          &nested, NULL);
+    free(nested.data);
+  }
+  return true;
+}
+static void open_xim_callback(xcb_xim_t *im, G_GNUC_UNUSED void *user_data) {
+  RofiViewState *state = rofi_view_get_active();
+  uint32_t input_style = XCB_IM_PreeditPosition | XCB_IM_StatusArea;
+  xcb_point_t spot;
+  spot.x = widget_get_x_pos(&state->text->widget) +
+           textbox_get_cursor_x_pos(state->text);
+  spot.y = widget_get_y_pos(&state->text->widget) +
+           widget_get_height(&state->text->widget);
+  xcb_xim_nested_list nested =
+      xcb_xim_create_nested_list(im, XCB_XIM_XNSpotLocation, &spot, NULL);
+  xcb_xim_create_ic(
+      im, create_ic_callback, NULL, XCB_XIM_XNInputStyle, &input_style,
+      XCB_XIM_XNClientWindow, &CacheState.main_window, XCB_XIM_XNFocusWindow,
+      &CacheState.main_window, XCB_XIM_XNPreeditAttributes, &nested, NULL);
+  free(nested.data);
+}
+#endif
+
+
 static void xcb___create_window(MenuFlags menu_flags) {
+  // In password mode, disable the entry history.
+  if ((menu_flags & MENU_PASSWORD) == MENU_PASSWORD) {
+    CacheState.entry_history_enable = FALSE;
+  }
+  input_history_initialize();
+
   uint32_t selmask = XCB_CW_BACK_PIXMAP | XCB_CW_BORDER_PIXEL |
                      XCB_CW_BIT_GRAVITY | XCB_CW_BACKING_STORE |
                      XCB_CW_EVENT_MASK | XCB_CW_COLORMAP;
@@ -586,6 +699,15 @@ static void xcb___create_window(MenuFlags menu_flags) {
                        XCB_GRAVITY_STATIC,   XCB_BACKING_STORE_NOT_USEFUL,
                        xcb_event_masks,      map};
 
+#ifdef XCB_IMDKIT
+  xcb_xim_set_im_callback(xcb->im, &xim_callback, NULL);
+#endif
+
+// Open connection to XIM server.
+#ifdef XCB_IMDKIT
+  xcb_xim_open(xcb->im, open_xim_callback, true, NULL);
+#endif
+
   xcb_window_t box_window = xcb_generate_id(xcb->connection);
   xcb_void_cookie_t cc = xcb_create_window_checked(
       xcb->connection, depth->depth, box_window, xcb_stuff_get_root_window(), 0,
@@ -597,6 +719,7 @@ static void xcb___create_window(MenuFlags menu_flags) {
     g_error("xcb_create_window() failed error=0x%x\n", error->error_code);
     exit(EXIT_FAILURE);
   }
+
   TICK_N("xcb create window");
   XcbState.gc = xcb_generate_id(xcb->connection);
   xcb_create_gc(xcb->connection, XcbState.gc, box_window, 0, 0);
@@ -882,6 +1005,8 @@ static void xcb_rofi_view_cleanup() {
   }
   xcb_flush(xcb->connection);
   g_assert(g_queue_is_empty(&(CacheState.views)));
+
+  input_history_save();
 }
 
 static xcb_window_t xcb_rofi_view_get_window(void) {

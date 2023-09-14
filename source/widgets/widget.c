@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,10 +24,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+#include "config.h"
 
-#include "widgets/widget.h"
 #include "theme.h"
 #include "widgets/widget-internal.h"
+#include "widgets/widget.h"
 #include <glib.h>
 #include <math.h>
 
@@ -250,7 +251,10 @@ void widget_draw(widget *widget, cairo_t *d) {
     cairo_restore(d);
 
     if (left != 0 || top != 0 || right != 0 || bottom != 0) {
-      cairo_save(d);
+      // NOTE: Cairo group push/pop has same effect as cairo_save/cairo_restore,
+      // thus no need for these.
+      cairo_push_group(d);
+      cairo_set_operator(d, CAIRO_OPERATOR_ADD);
       cairo_translate(d, widget->x, widget->y);
       cairo_new_path(d);
       rofi_theme_get_color(widget, "border-color", d);
@@ -332,8 +336,6 @@ void widget_draw(widget *widget, cairo_t *d) {
         cairo_stroke(d);
       }
       if (radius_tl > 0) {
-        distance_get_linestyle(widget->border.left, d);
-        cairo_set_line_width(d, 0);
         double radius_outer = radius_tl + minof_tl;
         cairo_arc(d, margin_left + radius_outer, margin_top + radius_outer,
                   radius_outer, -G_PI, -G_PI_2);
@@ -350,8 +352,6 @@ void widget_draw(widget *widget, cairo_t *d) {
         cairo_fill(d);
       }
       if (radius_tr > 0) {
-        distance_get_linestyle(widget->border.right, d);
-        cairo_set_line_width(d, 0);
         double radius_outer = radius_tr + minof_tr;
         cairo_arc(d, widget->w - margin_right - radius_outer,
                   margin_top + radius_outer, radius_outer, -G_PI_2, 0);
@@ -370,8 +370,6 @@ void widget_draw(widget *widget, cairo_t *d) {
         cairo_fill(d);
       }
       if (radius_br > 0) {
-        distance_get_linestyle(widget->border.right, d);
-        cairo_set_line_width(d, 1);
         double radius_outer = radius_br + minof_br;
         cairo_arc(d, widget->w - margin_right - radius_outer,
                   widget->h - margin_bottom - radius_outer, radius_outer, 0.0,
@@ -394,8 +392,6 @@ void widget_draw(widget *widget, cairo_t *d) {
         cairo_fill(d);
       }
       if (radius_bl > 0) {
-        distance_get_linestyle(widget->border.left, d);
-        cairo_set_line_width(d, 1.0);
         double radius_outer = radius_bl + minof_bl;
         cairo_arc(d, margin_left + radius_outer,
                   widget->h - margin_bottom - radius_outer, radius_outer,
@@ -416,8 +412,8 @@ void widget_draw(widget *widget, cairo_t *d) {
 
         cairo_fill(d);
       }
-
-      cairo_restore(d);
+      cairo_pop_group_to_source(d);
+      cairo_paint(d);
     }
   }
 }

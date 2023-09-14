@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -31,61 +31,6 @@
 #include <cairo.h>
 #include <glib.h>
 #include <widgets/widget.h>
-
-/**
- * Describe the media constraint type.
- */
-typedef enum {
-  /** Minimum width constraint. */
-  THEME_MEDIA_TYPE_MIN_WIDTH,
-  /** Maximum width constraint. */
-  THEME_MEDIA_TYPE_MAX_WIDTH,
-  /** Minimum height constraint. */
-  THEME_MEDIA_TYPE_MIN_HEIGHT,
-  /** Maximum height constraint. */
-  THEME_MEDIA_TYPE_MAX_HEIGHT,
-  /** Monitor id constraint. */
-  THEME_MEDIA_TYPE_MON_ID,
-  /** Minimum aspect ratio constraint. */
-  THEME_MEDIA_TYPE_MIN_ASPECT_RATIO,
-  /** Maximum aspect ratio constraint. */
-  THEME_MEDIA_TYPE_MAX_ASPECT_RATIO,
-  /** Boolean option for use with env. */
-  THEME_MEDIA_TYPE_BOOLEAN,
-  /** Invalid entry. */
-  THEME_MEDIA_TYPE_INVALID,
-} ThemeMediaType;
-
-/**
- * Theme Media description.
- */
-typedef struct ThemeMedia {
-  ThemeMediaType type;
-  double value;
-  gboolean boolv;
-} ThemeMedia;
-
-/**
- * ThemeWidget.
- */
-typedef struct ThemeWidget {
-  int set;
-  char *name;
-
-  unsigned int num_widgets;
-  struct ThemeWidget **widgets;
-
-  ThemeMedia *media;
-
-  GHashTable *properties;
-
-  struct ThemeWidget *parent;
-} ThemeWidget;
-
-/**
- * Display scale.
- */
-typedef guint (*disp_scale_func)(void);
 
 /**
  * Global pointer to the current active theme.
@@ -141,10 +86,13 @@ void rofi_theme_property_free(Property *p);
 
 /**
  * @param p The property to free.
+ * @param data User data (unused)
+ *
+ * Make a newly allocted copy of the property.
  *
  * @returns a copy of p
  */
-Property *rofi_theme_property_copy(const Property *p, void *);
+Property *rofi_theme_property_copy(const Property *p, G_GNUC_UNUSED void *);
 /**
  * @param widget
  *
@@ -368,47 +316,18 @@ ThemeWidget *rofi_theme_find_widget(const char *name, const char *state,
                                     gboolean exact);
 
 /**
- * @param name The name of the element to find.
- * @param state The state of the element.
- * @param exact If the match should be exact, or parent can be included.
- *
- * Find the configuration element. If not exact, the closest specified element
- * is returned.
- *
- * @returns the ThemeWidget if found, otherwise NULL.
- */
-ThemeWidget *rofi_config_find_widget(const char *name, const char *state,
-                                     gboolean exact);
-
-/**
- * @param widget The widget to find the property on.
- * @param type   The %PropertyType to find.
- * @param property The property to find.
- * @param exact  If the property should only be found on this widget, or on
- * parents if not found.
- *
- * Find the property on the widget. If not exact, the parents are searched
- * recursively until match is found.
- *
- * @returns the Property if found, otherwise NULL.
- */
-Property *rofi_theme_find_property(ThemeWidget *widget, PropertyType type,
-                                   const char *property, gboolean exact);
-
-/**
  * Reset the current theme.
  */
 void rofi_theme_reset(void);
 
 /**
  * @param file File name to prepare.
- * @param parent_file Filename of parent file.
  *
  * Tries to find full path relative to parent file.
  *
  * @returns full path to file.
  */
-char *rofi_theme_parse_prepare_file(const char *file, const char *parent_file);
+char *rofi_theme_parse_prepare_file(const char *file);
 
 /**
  * Process conditionals.
@@ -463,11 +382,31 @@ void rofi_theme_free_parsed_files(void);
 void rofi_theme_print_parsed_files(int is_term);
 
 /**
+ * @param widget The widget handle.
+ * @param property The property to query.
+ *
  * Returns a list of allocated RofiDistance objects that should be
  * freed.
+ *
+ * @returns a GList of  RofiDistance objects.
  */
 GList *rofi_theme_get_list_distance(const widget *widget, const char *property);
+
+/**
+ * @param widget The widget handle.
+ * @param property The property to query.
+ *
+ * Returns a list of allocated strings othat should be
+ * freed.
+ *
+ * @returns a GList of strings.
+ */
 GList *rofi_theme_get_list_strings(const widget *widget, const char *property);
+
+/**
+ * Display scale function type
+ */
+typedef guint (*disp_scale_func)(void);
 
 /**
  * @param func The function pointer to scale getter.

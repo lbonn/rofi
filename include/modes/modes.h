@@ -39,6 +39,7 @@
 #include "modes/dmenu.h"
 #include "modes/drun.h"
 #include "modes/filebrowser.h"
+#include "modes/recursivebrowser.h"
 #include "modes/help-keys.h"
 #include "modes/run.h"
 #include "modes/script.h"

@@ -2,7 +2,7 @@
  * rofi
  *
  * MIT/X11 License
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -27,9 +27,10 @@
 
 /** The log domain of this dialog. */
 #define G_LOG_DOMAIN "Modes.DMenu"
+#include "config.h"
 
-#include "modes/dmenu.h"
 #include "helper.h"
+#include "modes/dmenu.h"
 #include "rofi-icon-fetcher.h"
 #include "rofi.h"
 #include "settings.h"
@@ -114,6 +115,8 @@ typedef struct {
   char *ballot_unselected;
 } DmenuModePrivateData;
 
+/** Maximum number of lines rofi parses async before it pushes it to the main
+ * thread. */
 #define BLOCK_LINES_SIZE 2048
 typedef struct {
   unsigned int length;
@@ -168,6 +171,8 @@ static void read_add(DmenuModePrivateData *pd, char *data, gsize len) {
   pd->cmd_list[pd->cmd_list_length].icon_name = NULL;
   pd->cmd_list[pd->cmd_list_length].meta = NULL;
   pd->cmd_list[pd->cmd_list_length].info = NULL;
+  pd->cmd_list[pd->cmd_list_length].active = FALSE;
+  pd->cmd_list[pd->cmd_list_length].urgent = FALSE;
   pd->cmd_list[pd->cmd_list_length].nonselectable = FALSE;
   char *end = data;
   while (end < data + len && *end != '\0') {
@@ -255,8 +260,6 @@ static gpointer read_input_thread(gpointer userdata) {
   ssize_t nread = 0;
   ssize_t len = 0;
   char *line = NULL;
-  // Create the message passing queue to the UI thread.
-  pd->async_queue = g_async_queue_new();
   Block *block = NULL;
 
   GTimer *tim = g_timer_new();
@@ -301,7 +304,7 @@ static gpointer read_input_thread(gpointer userdata) {
               i = 0;
               if (block) {
                 double elapsed = g_timer_elapsed(tim, NULL);
-                if ( elapsed >= 0.1 || block->length == BLOCK_LINES_SIZE) {
+                if (elapsed >= 0.1 || block->length == BLOCK_LINES_SIZE) {
                   g_timer_start(tim);
                   g_async_queue_push(pd->async_queue, block);
                   block = NULL;
@@ -386,14 +389,14 @@ static gchar *dmenu_format_output_string(const DmenuModePrivateData *pd,
     }
   }
   for (uint32_t i = 0; pd->columns && pd->columns[i]; i++) {
-    unsigned int index =
+    unsigned int col_index =
         (unsigned int)g_ascii_strtoull(pd->columns[i], NULL, 10);
-    if (index <= ns && index > 0) {
-      if (index == 1) {
-        g_string_append(str_retv, splitted[index - 1]);
+    if (col_index <= ns && col_index > 0) {
+      if (i == 0) {
+        g_string_append(str_retv, splitted[col_index - 1]);
       } else {
         g_string_append_c(str_retv, '\t');
-        g_string_append(str_retv, splitted[index - 1]);
+        g_string_append(str_retv, splitted[col_index - 1]);
       }
     }
   }
@@ -448,6 +451,12 @@ static char *get_display_data(const Mode *data, unsigned int index, int *state,
   if (pd->do_markup) {
     *state |= MARKUP;
   }
+  if (pd->cmd_list[index].urgent) {
+    *state |= URGENT;
+  }
+  if (pd->cmd_list[index].active) {
+    *state |= ACTIVE;
+  }
   char *my_retv =
       (get_entry ? dmenu_format_output_string(pd, retv[index].entry, index,
                                               pd->multi_select)
@@ -496,7 +505,8 @@ Mode dmenu_mode = {.name = "dmenu",
                    ._get_message = dmenu_get_message,
                    .private_data = NULL,
                    .free = NULL,
-                   .display_name = "dmenu"};
+                   .display_name = "dmenu",
+                   .type = MODE_TYPE_DMENU};
 
 static int dmenu_mode_init(Mode *sw) {
   if (mode_get_private_data(sw) != NULL) {
@@ -506,12 +516,17 @@ static int dmenu_mode_init(Mode *sw) {
   DmenuModePrivateData *pd = (DmenuModePrivateData *)mode_get_private_data(sw);
 
   pd->async = TRUE;
+  pd->multi_select = FALSE;
 
   // For now these only work in sync mode.
   if (find_arg("-sync") >= 0 || find_arg("-dump") >= 0 ||
       find_arg("-select") >= 0 || find_arg("-no-custom") >= 0 ||
       find_arg("-only-match") >= 0 || config.auto_select ||
       find_arg("-selected-row") >= 0) {
+    pd->async = FALSE;
+  }
+  if (find_arg("-multi-select") >= 0) {
+    pd->multi_select = TRUE;
     pd->async = FALSE;
   }
 
@@ -603,6 +618,8 @@ static int dmenu_mode_init(Mode *sw) {
     }
     pd->wake_source =
         g_unix_fd_add(pd->pipefd2[0], G_IO_IN, dmenu_async_read_proc, pd);
+    // Create the message passing queue to the UI thread.
+    pd->async_queue = g_async_queue_new();
     pd->reading_thread =
         g_thread_new("dmenu-read", (GThreadFunc)read_input_thread, pd);
     pd->loading = TRUE;
@@ -902,14 +919,11 @@ int dmenu_mode_dialog(void) {
   DmenuScriptEntry *cmd_list = pd->cmd_list;
 
   pd->only_selected = FALSE;
-  pd->multi_select = FALSE;
   pd->ballot_selected = "☑ ";
   pd->ballot_unselected = "☐ ";
   find_arg_str("-ballot-selected-str", &(pd->ballot_selected));
   find_arg_str("-ballot-unselected-str", &(pd->ballot_unselected));
-  if (find_arg("-multi-select") >= 0) {
-    pd->multi_select = TRUE;
-  }
+
   if (find_arg("-markup-rows") >= 0) {
     pd->do_markup = TRUE;
   }
@@ -962,7 +976,21 @@ int dmenu_mode_dialog(void) {
       rofi_view_create(&dmenu_mode, input, menu_flags, dmenu_finalize);
 
   if (find_arg("-keep-right") >= 0) {
-    rofi_view_ellipsize_start(state);
+    rofi_view_ellipsize_listview(state, PANGO_ELLIPSIZE_START);
+  }
+  char *ellipsize_mode = NULL;
+  if (find_arg_str("-ellipsize-mode", &ellipsize_mode) >= 0) {
+    if (ellipsize_mode) {
+      if (g_ascii_strcasecmp(ellipsize_mode, "start") == 0) {
+        rofi_view_ellipsize_listview(state, PANGO_ELLIPSIZE_START);
+      } else if (g_ascii_strcasecmp(ellipsize_mode, "middle") == 0) {
+        rofi_view_ellipsize_listview(state, PANGO_ELLIPSIZE_MIDDLE);
+      } else if (g_ascii_strcasecmp(ellipsize_mode, "end") == 0) {
+        rofi_view_ellipsize_listview(state, PANGO_ELLIPSIZE_END);
+      } else {
+        g_warning("Unrecognized ellipsize mode: '%s'", ellipsize_mode);
+      }
+    }
   }
   rofi_view_set_selected_line(state, pd->selected_line);
   rofi_view_set_active(state);
@@ -1026,4 +1054,6 @@ void print_dmenu_options(void) {
                  "When multi-select is enabled prefix this string when element "
                  "is not selected.",
                  NULL, is_term);
+  print_help_msg("-ellipsize-mode", "end",
+                 "Set ellipsize mode(start | middle | end).", NULL, is_term);
 }

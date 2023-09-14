@@ -3,3 +3,4 @@ option('window', type: 'boolean', value: true, description: 'Window switcher mod
 option('check', type: 'feature', description: 'Build and run libcheck-based tests')
 option('wayland', type: 'feature', value: 'enabled', description: 'Build with wayland support')
 option('xcb', type: 'feature', value: 'enabled', description: 'Build with X11/xcb support')
+option('imdkit', type: 'boolean', value: false, description: 'IMDKit support')

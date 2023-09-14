@@ -3,7 +3,7 @@
  *
  * MIT/X11 License
  * Copyright © 2012 Sean Pringle <sean.pringle@gmail.com>
- * Copyright © 2013-2022 Qball Cow <qball@gmpclient.org>
+ * Copyright © 2013-2023 Qball Cow <qball@gmpclient.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -79,9 +79,11 @@
 char *pidfile = NULL;
 /** Location of Cache directory. */
 const char *cache_dir = NULL;
+char *cache_dir_alloc = NULL;
 
 /** List of error messages.*/
 GList *list_of_error_msgs = NULL;
+/** List of warning messages for the user.*/
 GList *list_of_warning_msgs = NULL;
 
 static void rofi_collectmodes_destroy(void);
@@ -160,6 +162,21 @@ static int mode_lookup(const char *name) {
     }
   }
   return -1;
+}
+/**
+ * @param name Name of the mode to lookup.
+ *
+ * Find the index of the mode with name.
+ *
+ * @returns index of the mode in modes, -1 if not found.
+ */
+static const Mode *mode_available_lookup(const char *name) {
+  for (unsigned int i = 0; i < num_available_modes; i++) {
+    if (strcmp(mode_get_name(available_modes[i]), name) == 0) {
+      return available_modes[i];
+    }
+  }
+  return NULL;
 }
 
 /**
@@ -339,6 +356,17 @@ static void help(G_GNUC_UNUSED int argc, char **argv) {
   printf("Global options:\n");
   print_options();
   printf("\n");
+#ifdef ENABLE_XCB
+  printf("Detected Window manager:\n");
+  char *wm = x11_helper_get_window_manager();
+  if (wm) {
+    printf("\t• %s\n", wm);
+    g_free(wm);
+  } else {
+    printf("\t• No window manager detected.\n");
+  }
+  printf("\n");
+#endif
   display_dump_monitor_layout();
   printf("\n");
   printf("Detected modes:\n");
@@ -375,6 +403,13 @@ static void help(G_GNUC_UNUSED int argc, char **argv) {
          is_term ? color_reset : "");
 #else
   printf("\t• asan    %sdisabled%s\n", is_term ? color_red : "",
+         is_term ? color_reset : "");
+#endif
+#ifdef XCB_IMDKIT
+  printf("\t• imdkit  %senabled%s\n", is_term ? color_green : "",
+         is_term ? color_reset : "");
+#else
+  printf("\t• imdkit  %sdisabled%s\n", is_term ? color_red : "",
          is_term ? color_reset : "");
 #endif
   printf("\n");
@@ -508,6 +543,11 @@ static void cleanup(void) {
     rofi_theme_free(rofi_configuration);
     rofi_configuration = NULL;
   }
+  // Cleanup memory allocated by rofi_expand_path
+  if (cache_dir_alloc) {
+    g_free(cache_dir_alloc);
+    cache_dir_alloc = NULL;
+  }
 }
 
 /**
@@ -606,6 +646,7 @@ static void rofi_collect_modes(void) {
   rofi_collectmodes_add(&combi_mode);
   rofi_collectmodes_add(&help_keys_mode);
   rofi_collectmodes_add(&file_browser_mode);
+  rofi_collectmodes_add(&recursive_browser_mode);
 
   if (find_arg("-no-plugins") < 0) {
     find_arg_str("-plugin-path", &(config.plugin_path));
@@ -770,8 +811,26 @@ static gboolean startup(G_GNUC_UNUSED gpointer data) {
     if (find_arg("-markup") >= 0) {
       markup = TRUE;
     }
-    if (!rofi_view_error_dialog(msg, markup)) {
-      g_main_loop_quit(main_loop);
+    // When we pass -, we read from stdin.
+    if (g_strcmp0(msg, "-") == 0) {
+      size_t index = 0, i = 0;
+      size_t length = 1024;
+      msg = malloc(length * sizeof(char));
+      while ((i = fread(&msg[index], 1, 1024, stdin)) > 0) {
+        index += i;
+        length += i;
+        msg = realloc(msg, length * sizeof(char));
+      }
+
+      if (!rofi_view_error_dialog(msg, markup)) {
+        g_main_loop_quit(main_loop);
+      }
+      g_free(msg);
+    } else {
+      // Normal version
+      if (!rofi_view_error_dialog(msg, markup)) {
+        g_main_loop_quit(main_loop);
+      }
     }
   } else if (find_arg_str("-show", &sname) == TRUE) {
     int index = mode_lookup(sname);
@@ -802,6 +861,11 @@ static gboolean startup(G_GNUC_UNUSED gpointer data) {
   return G_SOURCE_REMOVE;
 }
 
+static gboolean take_screenshot_quit(G_GNUC_UNUSED void *data) {
+  rofi_capture_screenshot();
+  rofi_quit_main_loop();
+  return G_SOURCE_REMOVE;
+}
 static gboolean record(G_GNUC_UNUSED void *data) {
   rofi_capture_screenshot();
   return G_SOURCE_CONTINUE;
@@ -1060,7 +1124,7 @@ int main(int argc, char *argv[]) {
   cache_dir = g_get_user_cache_dir();
 
   if (config.cache_dir != NULL) {
-    cache_dir = config.cache_dir;
+    cache_dir = cache_dir_alloc = rofi_expand_path(config.cache_dir);
   }
 
   if (g_mkdir_with_parents(cache_dir, 0700) < 0) {
@@ -1090,7 +1154,7 @@ int main(int argc, char *argv[]) {
    */
   const char **theme_str = find_arg_strv("-theme-str");
   if (theme_str) {
-    for (int index = 0; theme_str && theme_str[index]; index++) {
+    for (int index = 0; theme_str[index]; index++) {
       if (rofi_theme_parse_string(theme_str[index])) {
         g_warning("Failed to parse -theme-str option: \"%s\"",
                   theme_str[index]);
@@ -1135,6 +1199,9 @@ int main(int argc, char *argv[]) {
   unsigned int interval = 1;
   if (find_arg_uint("-record-screenshots", &interval)) {
     g_timeout_add((guint)(1000 / (double)interval), record, NULL);
+  }
+  if (find_arg_uint("-take-screenshot-quit", &interval)) {
+    g_timeout_add(interval, take_screenshot_quit, NULL);
   }
   if (find_arg("-benchmark-ui") >= 0) {
     config.benchmark_ui = TRUE;
@@ -1208,4 +1275,15 @@ int rofi_theme_rasi_validate(const char *filename) {
   }
 
   return EXIT_FAILURE;
+}
+
+const Mode *rofi_get_completer(void) {
+  const Mode *index = mode_available_lookup(config.completer_mode);
+  if (index != NULL) {
+    return index;
+  }
+  const char *name =
+      config.completer_mode == NULL ? "(null)" : config.completer_mode;
+  g_warning("Mode: %s not found or is not valid for use as completer.", name);
+  return NULL;
 }

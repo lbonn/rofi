@@ -27,10 +27,12 @@
 
 /** The log domain of this widget. */
 #define G_LOG_DOMAIN "Widgets.Icon"
+#include "config.h"
 
 #include "display.h"
-#include "widgets/icon.h"
+
 #include "theme.h"
+#include "widgets/icon.h"
 #include "widgets/widget-internal.h"
 #include "widgets/widget.h"
 #include <stdio.h>
