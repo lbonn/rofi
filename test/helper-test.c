@@ -32,7 +32,6 @@
 #include "rofi.h"
 #include "settings.h"
 #include "theme.h"
-#include "xcb.h"
 #include <assert.h>
 #include <glib.h>
 #include <helper.h>

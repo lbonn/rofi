@@ -36,7 +36,12 @@
 #include "widgets/listview.h"
 #include "widgets/textbox.h"
 #include "widgets/widget.h"
+
+#ifdef ENABLE_XCB
 #include "xcb.h"
+#else
+#include "xcb-dummy.h"
+#endif
 
 #ifdef ENABLE_WAYLAND
 #include "wayland.h"

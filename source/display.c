@@ -45,4 +45,4 @@ char *display_get_clipboard_data(enum clipboard_type type) {
   return proxy->get_clipboard_data(type);
 }
 
-void display_set_fullscreen_mode(void) { return proxy->set_fullscreen_mode(); }
+void display_set_fullscreen_mode(void) { proxy->set_fullscreen_mode(); }

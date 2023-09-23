@@ -31,7 +31,6 @@
 #include "rofi.h"
 #include "settings.h"
 #include "widgets/textbox.h"
-#include "xcb.h"
 #include <assert.h>
 #include <glib.h>
 #include <helper.h>

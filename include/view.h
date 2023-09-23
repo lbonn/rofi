@@ -31,7 +31,11 @@
 #include "mode.h"
 #include "widgets/widget.h"
 #include <pango/pango.h>
+#ifdef ENABLE_XCB
 #include <xcb/xcb.h>
+#else
+#include "xcb-dummy.h"
+#endif
 /**
  * @defgroup View View
  *

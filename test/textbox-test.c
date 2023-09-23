@@ -31,10 +31,8 @@
 
 #include "display.h"
 #include "settings.h"
-#include "xcb.h"
 #include "xrmoptions.h"
 #include <assert.h>
-#include <cairo-xlib.h>
 #include <glib.h>
 #include <history.h>
 #include <rofi.h>

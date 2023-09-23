@@ -60,6 +60,8 @@
 #ifdef ENABLE_XCB
 #include "xcb-internal.h"
 #include "xcb.h"
+#else
+#include "xcb-dummy.h"
 #endif
 
 static const view_proxy *proxy;
