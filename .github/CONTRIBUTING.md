@@ -79,6 +79,6 @@ For example, should it be a configuration option or a hot-key.
 
 Requesting a feature is no guarantee it will be added.
 
-**Please do not submit reports related to wayland, see
-[here](https://github.com/DaveDavenport/rofi/wiki/Wayland) for more
-information.**
+**Please check that you are using this fork when reporting Wayland bugs
+and do not report them to upstream Rofi,
+[here](https://github.com/DaveDavenport/rofi/wiki/Wayland) for more information.**
