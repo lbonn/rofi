@@ -34,7 +34,6 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <string.h>
-#include <xcb/xcb.h>
 #include <xkbcommon/xkbcommon.h>
 
 /**

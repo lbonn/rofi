@@ -40,7 +40,6 @@
 #include <glib/gstdio.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
-#include <xcb/xkb.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon.h>
 

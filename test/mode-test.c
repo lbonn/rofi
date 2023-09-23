@@ -37,7 +37,6 @@
 #include "rofi.h"
 #include "theme.h"
 #include "widgets/textbox.h"
-#include "xcb.h"
 #include <helper.h>
 #include <keyb.h>
 #include <mode-private.h>

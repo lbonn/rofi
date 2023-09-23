@@ -6,7 +6,6 @@
 #include <libgwater-wayland.h>
 #include <nkutils-bindings.h>
 #include <wayland-client.h>
-#include <xcb/xkb.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include "wayland.h"
