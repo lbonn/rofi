@@ -42,6 +42,8 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup
+        with:
+          xcb: false
       - uses: ./.github/actions/meson
         with:
           cc: gcc
@@ -53,6 +55,8 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup
+        with:
+          wayland: false
       - uses: ./.github/actions/meson
         with:
           cc: gcc

@@ -1,6 +1,14 @@
 name: CI Build Setup
 description: Sets up build dependencies
 
+inputs:
+  xcb:
+    description: Install xcb dependencies
+    default: 'true'
+  wayland:
+    description: Install wayland dependencies
+    default: 'true'
+
 runs:
   using: composite
   steps:
@@ -21,17 +29,6 @@ runs:
           jq \
           lcov \
           libpango1.0-dev \
-          libstartup-notification0-dev \
-          libwayland-dev \
-          libxcb-ewmh-dev \
-          libxcb-icccm4-dev \
-          libxcb-randr0-dev \
-          libxcb-util0-dev \
-          libxcb-xinerama0-dev \
-          libxcb-xkb-dev \
-          libxcb-xrm-dev \
-          libxcb-cursor-dev \
-          libxcb-imdkit-dev \
           libxkbcommon-dev \
           libxkbcommon-dev \
           libxkbcommon-x11-dev \
@@ -41,11 +38,32 @@ runs:
           python3-wheel \
           texi2html \
           texinfo \
-          wayland-protocols \
           xdotool \
           xfonts-base \
           xterm \
           xutils-dev
+      shell: bash
+    - id: apt-wayland
+      if: ${{ inputs.wayland  == 'true' }}
+      run: |
+        sudo apt-get install -y \
+          libwayland-dev \
+          wayland-protocols
+      shell: bash
+    - id: apt-xcb
+      if: ${{ inputs.xcb  == 'true' }}
+      run: |
+        sudo apt-get install -y \
+          libstartup-notification0-dev \
+          libxcb-ewmh-dev \
+          libxcb-icccm4-dev \
+          libxcb-randr0-dev \
+          libxcb-util0-dev \
+          libxcb-xinerama0-dev \
+          libxcb-xkb-dev \
+          libxcb-xrm-dev \
+          libxcb-cursor-dev \
+          libxcb-imdkit-dev
       shell: bash
     - id: check
       run: |
