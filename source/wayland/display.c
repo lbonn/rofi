@@ -459,7 +459,7 @@ static void wayland_keyboard_modifiers(void *data, struct wl_keyboard *keyboard,
                                        uint32_t mods_locked, uint32_t group) {
   wayland_seat *self = data;
   nk_bindings_seat_update_mask(wayland->bindings_seat, NULL, mods_depressed,
-                               mods_latched, mods_locked, 0, 0, 0);
+                               mods_latched, mods_locked, 0, 0, group);
 
   RofiViewState *state = rofi_view_get_active();
   if (state != NULL) {
