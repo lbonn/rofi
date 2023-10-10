@@ -94,7 +94,7 @@ body:
       label: Using wayland display server protocol
       description: I have checked and confirm that I am using [rofi with wayland support enabled](https://github.com/lbonn/rofi)
       options:
-        - label: "No, I don't use the wayland display server protocol"
+        - label: "Yes, I use rofi with wayland support"
           required: true
   - type: checkboxes
     id: latestversion
