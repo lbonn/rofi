@@ -49,6 +49,7 @@
 
 #include "keyb.h"
 #include "view.h"
+#include "settings.h"
 
 #include "display-internal.h"
 #include "display.h"
@@ -565,6 +566,14 @@ static void wayland_pointer_send_events(wayland_seat *self) {
                                      NK_BINDINGS_BUTTON_STATE_PRESS,
                                      self->button.time);
     } else {
+      // When clicking outside the view on the overlay the coordinates are always given as 0,0
+      int click_outside =
+          self->button.button == BTN_LEFT
+          && self->button.x == 0
+          && self->button.y == 0;
+      if (config.click_to_exit == TRUE && click_outside) {
+        rofi_view_temp_click_to_exit(state, 0);
+      }
       nk_bindings_seat_handle_button(wayland->bindings_seat, NULL, button,
                                      NK_BINDINGS_BUTTON_STATE_RELEASE,
                                      self->button.time);

@@ -449,11 +449,17 @@ static void wayland_rofi_view_pool_refresh(void) {
   wayland_rofi_view_update(state, TRUE);
 }
 
+static void wayland_rofi_view_temp_click_to_exit(RofiViewState *state, xcb_window_t target) {
+  (void) target;
+  state->quit = TRUE;
+  state->retv = MENU_CANCEL;
+}
+
 static view_proxy view_ = {
     .update = wayland_rofi_view_update,
     .maybe_update = wayland_rofi_view_maybe_update,
     .temp_configure_notify = NULL,
-    .temp_click_to_exit = NULL,
+    .temp_click_to_exit = wayland_rofi_view_temp_click_to_exit,
     .frame_callback = wayland_rofi_view_frame_callback,
     .queue_redraw = wayland_rofi_view_queue_redraw,
 
