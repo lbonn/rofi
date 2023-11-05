@@ -2028,6 +2028,8 @@ static void xcb_display_revert_input_focus(void) {
   xcb_flush(xcb->connection);
 }
 
+static guint xcb_display_scale(void) { return 1; }
+
 static const struct _view_proxy *xcb_display_view_proxy(void) {
   return xcb_view_proxy;
 }
@@ -2042,6 +2044,7 @@ static display_proxy display_ = {
     .monitor_active = xcb_display_monitor_active,
     .set_input_focus = xcb_display_set_input_focus,
     .revert_input_focus = xcb_display_revert_input_focus,
+    .scale = xcb_display_scale,
 
     .view = xcb_display_view_proxy,
 };

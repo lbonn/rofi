@@ -38,6 +38,7 @@
 #include <cairo.h>
 #include <pango/pangocairo.h>
 
+#include "display.h"
 #include "keyb.h"
 #include "view.h"
 
@@ -78,6 +79,7 @@ typedef struct {
   uint32_t uid;
   int wsize;
   int hsize;
+  guint scale;
   cairo_surface_t *surface;
   gboolean query_done;
 
@@ -323,7 +325,7 @@ static void rofi_icon_fetcher_worker(thread_state *sdata,
   } else {
     icon_path = icon_path_ = nk_xdg_theme_get_icon(
         rofi_icon_fetcher_data->xdg_context, themes, NULL, sentry->entry->name,
-        MIN(sentry->wsize, sentry->hsize), 1, TRUE);
+        MIN(sentry->wsize, sentry->hsize), sentry->scale, TRUE);
     if (icon_path_ == NULL) {
       g_debug("failed to get icon %s(%dx%d): n/a", sentry->entry->name,
               sentry->wsize, sentry->hsize);
@@ -354,9 +356,15 @@ static void rofi_icon_fetcher_worker(thread_state *sdata,
     return;
   }
 
+  int width = sentry->wsize, height = sentry->hsize;
+  if (width > 0)
+    width *= sentry->scale;
+  if (height > 0)
+    height *= sentry->scale;
+
   GError *error = NULL;
-  GdkPixbuf *pb = gdk_pixbuf_new_from_file_at_scale(
-      icon_path, sentry->wsize, sentry->hsize, TRUE, &error);
+  GdkPixbuf *pb =
+      gdk_pixbuf_new_from_file_at_scale(icon_path, width, height, TRUE, &error);
   if (error != NULL) {
     g_warning("Failed to load image: %s", error->message);
     g_error_free(error);
@@ -385,10 +393,12 @@ uint32_t rofi_icon_fetcher_query_advanced(const char *name, const int wsize,
     g_hash_table_insert(rofi_icon_fetcher_data->icon_cache, entry->name, entry);
   }
   IconFetcherEntry *sentry;
+  const guint scale = display_scale();
   for (GList *iter = g_list_first(entry->sizes); iter;
        iter = g_list_next(iter)) {
     sentry = iter->data;
-    if (sentry->wsize == wsize && sentry->hsize == hsize) {
+    if (sentry->wsize == wsize && sentry->hsize == hsize &&
+        sentry->scale == scale) {
       return sentry->uid;
     }
   }
@@ -398,6 +408,7 @@ uint32_t rofi_icon_fetcher_query_advanced(const char *name, const int wsize,
   sentry->uid = ++(rofi_icon_fetcher_data->last_uid);
   sentry->wsize = wsize;
   sentry->hsize = hsize;
+  sentry->scale = scale;
   sentry->entry = entry;
   sentry->query_done = FALSE;
   sentry->surface = NULL;
@@ -422,10 +433,12 @@ uint32_t rofi_icon_fetcher_query(const char *name, const int size) {
     g_hash_table_insert(rofi_icon_fetcher_data->icon_cache, entry->name, entry);
   }
   IconFetcherEntry *sentry;
+  const guint scale = display_scale();
   for (GList *iter = g_list_first(entry->sizes); iter;
        iter = g_list_next(iter)) {
     sentry = iter->data;
-    if (sentry->wsize == size && sentry->hsize == size) {
+    if (sentry->wsize == size && sentry->hsize == size &&
+        sentry->scale == scale) {
       return sentry->uid;
     }
   }
@@ -435,6 +448,7 @@ uint32_t rofi_icon_fetcher_query(const char *name, const int size) {
   sentry->uid = ++(rofi_icon_fetcher_data->last_uid);
   sentry->wsize = size;
   sentry->hsize = size;
+  sentry->scale = scale;
   sentry->entry = entry;
   sentry->surface = NULL;
 
