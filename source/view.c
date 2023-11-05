@@ -122,7 +122,6 @@ static void rofi_view_update_prompt(RofiViewState *state) {
   }
 }
 
-
 extern GList *list_of_warning_msgs;
 static void rofi_view_reload_message_bar(RofiViewState *state) {
   if (state->mesg_box == NULL) {
@@ -830,7 +829,7 @@ void rofi_view_finalize(RofiViewState *state) {
  * This function should be called when the input of the entry is changed.
  * TODO: Evaluate if this needs to be a 'signal' on textbox?
  */
-static void rofi_view_input_changed() {
+static void rofi_view_input_changed(void) {
   rofi_view_take_action("inputchange");
 
   RofiViewState *state = current_active_menu;
@@ -896,17 +895,17 @@ static void rofi_view_trigger_global_action(KeyBindingAction action) {
     }
     if (data) {
 #ifdef ENABLE_XCB
-        if (config.backend == DISPLAY_XCB) {
-            xcb_stuff_set_clipboard(data);
-            xcb_set_selection_owner(xcb->connection, CacheState.main_window,
-                    netatoms[CLIPBOARD], XCB_CURRENT_TIME);
-            xcb_flush(xcb->connection);
-        }
+      if (config.backend == DISPLAY_XCB) {
+        xcb_stuff_set_clipboard(data);
+        xcb_set_selection_owner(xcb->connection, CacheState.main_window,
+                                netatoms[CLIPBOARD], XCB_CURRENT_TIME);
+        xcb_flush(xcb->connection);
+      }
 #endif
 #ifdef ENABLE_WAYLAND
-        if (config.backend == DISPLAY_WAYLAND) {
-            // TODO
-        }
+      if (config.backend == DISPLAY_WAYLAND) {
+        // TODO
+      }
 #endif
     }
   } break;

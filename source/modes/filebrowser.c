@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "display.h"
 #include "helper.h"
 #include "history.h"
 #include "mode-private.h"
@@ -94,6 +95,7 @@ typedef struct {
   enum FBFileType type;
   uint32_t icon_fetch_uid;
   uint32_t icon_fetch_size;
+  guint icon_fetch_scale;
   gboolean link;
   time_t time;
 } FBFile;
@@ -249,6 +251,7 @@ static void get_file_browser(Mode *sw) {
         pd->array[pd->array_length].type = UP;
         pd->array[pd->array_length].icon_fetch_uid = 0;
         pd->array[pd->array_length].icon_fetch_size = 0;
+        pd->array[pd->array_length].icon_fetch_scale = 0;
         pd->array[pd->array_length].link = FALSE;
         pd->array[pd->array_length].time = -1;
         pd->array_length++;
@@ -284,6 +287,7 @@ static void get_file_browser(Mode *sw) {
             (rd->d_type == DT_DIR) ? DIRECTORY : RFILE;
         pd->array[pd->array_length].icon_fetch_uid = 0;
         pd->array[pd->array_length].icon_fetch_size = 0;
+        pd->array[pd->array_length].icon_fetch_scale = 0;
         pd->array[pd->array_length].link = FALSE;
 
         if (file_browser_config.sorting_method == FB_SORT_TIME) {
@@ -304,6 +308,7 @@ static void get_file_browser(Mode *sw) {
             g_build_filename(cdir, rd->d_name, NULL);
         pd->array[pd->array_length].icon_fetch_uid = 0;
         pd->array[pd->array_length].icon_fetch_size = 0;
+        pd->array[pd->array_length].icon_fetch_scale = 0;
         pd->array[pd->array_length].link = TRUE;
         // Default to file.
         pd->array[pd->array_length].type = RFILE;
@@ -607,9 +612,11 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
                                   unsigned int height) {
   FileBrowserModePrivateData *pd =
       (FileBrowserModePrivateData *)mode_get_private_data(sw);
+  const guint scale = display_scale();
   g_return_val_if_fail(pd->array != NULL, NULL);
   FBFile *dr = &(pd->array[selected_line]);
-  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height) {
+  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height &&
+      dr->icon_fetch_scale == scale) {
     return rofi_icon_fetcher_get(dr->icon_fetch_uid);
   }
   if (rofi_icon_fetcher_file_is_image(dr->path)) {
@@ -618,6 +625,7 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
     dr->icon_fetch_uid = rofi_icon_fetcher_query(icon_name[dr->type], height);
   }
   dr->icon_fetch_size = height;
+  dr->icon_fetch_scale = scale;
   return rofi_icon_fetcher_get(dr->icon_fetch_uid);
 }
 

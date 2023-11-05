@@ -29,6 +29,7 @@
 #define G_LOG_DOMAIN "Modes.DMenu"
 #include "config.h"
 
+#include "display.h"
 #include "helper.h"
 #include "modes/dmenu.h"
 #include "rofi-icon-fetcher.h"
@@ -135,6 +136,7 @@ static void read_add_block(DmenuModePrivateData *pd, Block **block, char *data,
   // Init.
   (*block)->values[(*block)->length].icon_fetch_uid = 0;
   (*block)->values[(*block)->length].icon_fetch_size = 0;
+  (*block)->values[(*block)->length].icon_fetch_scale = 0;
   (*block)->values[(*block)->length].icon_name = NULL;
   (*block)->values[(*block)->length].meta = NULL;
   (*block)->values[(*block)->length].info = NULL;
@@ -165,6 +167,7 @@ static void read_add(DmenuModePrivateData *pd, char *data, gsize len) {
   // Init.
   pd->cmd_list[pd->cmd_list_length].icon_fetch_uid = 0;
   pd->cmd_list[pd->cmd_list_length].icon_fetch_size = 0;
+  pd->cmd_list[pd->cmd_list_length].icon_fetch_scale = 0;
   pd->cmd_list[pd->cmd_list_length].icon_name = NULL;
   pd->cmd_list[pd->cmd_list_length].meta = NULL;
   pd->cmd_list[pd->cmd_list_length].info = NULL;
@@ -697,18 +700,21 @@ static cairo_surface_t *dmenu_get_icon(const Mode *sw,
                                        unsigned int selected_line,
                                        unsigned int height) {
   DmenuModePrivateData *pd = (DmenuModePrivateData *)mode_get_private_data(sw);
+  const guint scale = display_scale();
 
   g_return_val_if_fail(pd->cmd_list != NULL, NULL);
   DmenuScriptEntry *dr = &(pd->cmd_list[selected_line]);
   if (dr->icon_name == NULL) {
     return NULL;
   }
-  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height) {
+  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height &&
+      dr->icon_fetch_scale == scale) {
     return rofi_icon_fetcher_get(dr->icon_fetch_uid);
   }
   uint32_t uid = dr->icon_fetch_uid =
       rofi_icon_fetcher_query(dr->icon_name, height);
   dr->icon_fetch_size = height;
+  dr->icon_fetch_scale = scale;
 
   return rofi_icon_fetcher_get(uid);
 }
