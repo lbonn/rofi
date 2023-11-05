@@ -29,6 +29,7 @@
 #define G_LOG_DOMAIN "Modes.Script"
 
 #include "modes/script.h"
+#include "display.h"
 #include "helper.h"
 #include "rofi.h"
 #include <assert.h>
@@ -481,9 +482,10 @@ static char *script_get_message(const Mode *sw) {
 }
 static cairo_surface_t *script_get_icon(const Mode *sw,
                                         unsigned int selected_line,
-                                        unsigned int height, guint scale) {
+                                        unsigned int height) {
   ScriptModePrivateData *pd =
       (ScriptModePrivateData *)mode_get_private_data(sw);
+  const guint scale = display_scale();
   g_return_val_if_fail(pd->cmd_list != NULL, NULL);
   DmenuScriptEntry *dr = &(pd->cmd_list[selected_line]);
   if (dr->icon_name == NULL) {
@@ -493,7 +495,7 @@ static cairo_surface_t *script_get_icon(const Mode *sw,
       dr->icon_fetch_scale == scale) {
     return rofi_icon_fetcher_get(dr->icon_fetch_uid);
   }
-  dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->icon_name, height, scale);
+  dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->icon_name, height);
   dr->icon_fetch_size = height;
   dr->icon_fetch_scale = scale;
   return rofi_icon_fetcher_get(dr->icon_fetch_uid);

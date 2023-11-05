@@ -1114,14 +1114,21 @@ static gboolean rofi_theme_get_image_inside(Property *p, const widget *widget,
       default:
         break;
       }
+#if 0
+      // FIXME: we cannot avoid the query because adding the `scale` field to
+      // RofiImage breaks ABI compatibility with rofi
       if (p->value.image.surface_id == 0 || p->value.image.wsize != wsize ||
           p->value.image.hsize != hsize || p->value.image.scale != scale) {
-        p->value.image.surface_id = rofi_icon_fetcher_query_advanced(
-            p->value.image.url, wsize, hsize, scale);
+        p->value.image.surface_id =
+            rofi_icon_fetcher_query_advanced(p->value.image.url, wsize, hsize);
         p->value.image.wsize = wsize;
         p->value.image.hsize = hsize;
         p->value.image.scale = scale;
       }
+#else
+      p->value.image.surface_id =
+          rofi_icon_fetcher_query_advanced(p->value.image.url, wsize, hsize);
+#endif
       cairo_surface_t *img = rofi_icon_fetcher_get(p->value.image.surface_id);
 
       if (img != NULL) {
@@ -1681,6 +1688,4 @@ gboolean rofi_theme_has_property(const widget *widget, const char *property) {
   return rofi_theme_has_property_inside(p, widget, property);
 }
 
-void rofi_theme_set_disp_scale_func(disp_scale_func func) {
-  disp_scale = func;
-}
+void rofi_theme_set_disp_scale_func(disp_scale_func func) { disp_scale = func; }

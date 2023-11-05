@@ -49,6 +49,7 @@
 #include "xcb-internal.h"
 #include "xcb.h"
 
+#include "display.h"
 #include "helper.h"
 #include "modes/window.h"
 #include "rofi.h"
@@ -972,7 +973,7 @@ static cairo_user_data_key_t data_key;
 static cairo_surface_t *draw_surface_from_data(uint32_t width, uint32_t height,
                                                uint32_t const *const data) {
   // limit surface size.
-  if ( width >= 65536 || height >= 65536){
+  if (width >= 65536 || height >= 65536) {
     return NULL;
   }
   uint32_t len = width * height;
@@ -1065,8 +1066,9 @@ static cairo_surface_t *get_net_wm_icon(xcb_window_t xid,
   return surface;
 }
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
-                                  unsigned int size, guint scale) {
+                                  unsigned int size) {
   WindowModePrivateData *rmpd = mode_get_private_data(sw);
+  const guint scale = display_scale();
   client *c = window_client(rmpd, rmpd->ids->array[selected_line]);
   if (c == NULL) {
     return NULL;
@@ -1093,9 +1095,10 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
     if (c->icon == NULL && c->class && c->icon_theme_checked == FALSE) {
       if (c->icon_fetch_uid == 0) {
         char *class_lower = g_utf8_strdown(c->class, -1);
-        c->icon_fetch_uid = rofi_icon_fetcher_query(class_lower, size, scale);
+        c->icon_fetch_uid = rofi_icon_fetcher_query(class_lower, size);
         g_free(class_lower);
         c->icon_fetch_size = size;
+        c->icon_fetch_scale = scale;
       }
       c->icon_theme_checked =
           rofi_icon_fetcher_get_ex(c->icon_fetch_uid, &(c->icon));
@@ -1106,9 +1109,9 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
   } else {
     if (c->icon == NULL && c->class && c->icon_theme_checked == FALSE) {
       if (c->icon_fetch_uid == 0 || c->icon_fetch_size != size ||
-          c->icon_fetch_size != scale) {
+          c->icon_fetch_scale != scale) {
         char *class_lower = g_utf8_strdown(c->class, -1);
-        c->icon_fetch_uid = rofi_icon_fetcher_query(class_lower, size, scale);
+        c->icon_fetch_uid = rofi_icon_fetcher_query(class_lower, size);
         g_free(class_lower);
         c->icon_fetch_size = size;
         c->icon_fetch_scale = scale;
@@ -1143,8 +1146,8 @@ Mode window_mode = {.name = "window",
                     ._get_completion = NULL,
                     ._preprocess_input = NULL,
                     .private_data = NULL,
-		    .free = NULL,
-		    .type  = MODE_TYPE_SWITCHER };
+                    .free = NULL,
+                    .type = MODE_TYPE_SWITCHER};
 Mode window_mode_cd = {.name = "windowcd",
                        .cfg_name_key = "display-windowcd",
                        ._init = window_mode_init_cd,
@@ -1158,6 +1161,6 @@ Mode window_mode_cd = {.name = "windowcd",
                        ._preprocess_input = NULL,
                        .private_data = NULL,
                        .free = NULL,
-		       .type  = MODE_TYPE_SWITCHER };
+                       .type = MODE_TYPE_SWITCHER};
 
 #endif // WINDOW_MODE

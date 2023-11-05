@@ -29,6 +29,7 @@
 #define G_LOG_DOMAIN "Modes.DMenu"
 #include "config.h"
 
+#include "display.h"
 #include "helper.h"
 #include "modes/dmenu.h"
 #include "rofi-icon-fetcher.h"
@@ -57,9 +58,8 @@
 static int dmenu_mode_init(Mode *sw);
 static int dmenu_token_match(const Mode *sw, rofi_int_matcher **tokens,
                              unsigned int index);
-static cairo_surface_t *dmenu_get_icon(const Mode *sw,
-                                       unsigned int selected_line,
-                                       unsigned int height, guint scale);
+static cairo_surface_t *
+dmenu_get_icon(const Mode *sw, unsigned int selected_line, unsigned int height);
 static char *dmenu_get_message(const Mode *sw);
 
 static inline unsigned int bitget(uint32_t const *const array,
@@ -698,9 +698,9 @@ static char *dmenu_get_message(const Mode *sw) {
 }
 static cairo_surface_t *dmenu_get_icon(const Mode *sw,
                                        unsigned int selected_line,
-                                       unsigned int height,
-                                       guint scale) {
+                                       unsigned int height) {
   DmenuModePrivateData *pd = (DmenuModePrivateData *)mode_get_private_data(sw);
+  const guint scale = display_scale();
 
   g_return_val_if_fail(pd->cmd_list != NULL, NULL);
   DmenuScriptEntry *dr = &(pd->cmd_list[selected_line]);
@@ -712,7 +712,7 @@ static cairo_surface_t *dmenu_get_icon(const Mode *sw,
     return rofi_icon_fetcher_get(dr->icon_fetch_uid);
   }
   uint32_t uid = dr->icon_fetch_uid =
-      rofi_icon_fetcher_query(dr->icon_name, height, scale);
+      rofi_icon_fetcher_query(dr->icon_name, height);
   dr->icon_fetch_size = height;
   dr->icon_fetch_scale = scale;
 

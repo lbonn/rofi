@@ -45,16 +45,15 @@
 #define REAL_COMPARE_DELTA 0.001
 
 uint32_t rofi_icon_fetcher_query(G_GNUC_UNUSED const char *name,
-                                 G_GNUC_UNUSED const int size,
-                                 G_GNUC_UNUSED const guint scale) {
+                                 G_GNUC_UNUSED const int size) {
   return 0;
 }
 void rofi_clear_error_messages(void) {}
 void rofi_clear_warning_messages(void) {}
-uint32_t rofi_icon_fetcher_query_advanced(G_GNUC_UNUSED const char *name,
-                                          G_GNUC_UNUSED const int wsize,
-                                          G_GNUC_UNUSED const int hsize,
-                                          G_GNUC_UNUSED const guint scale) {
+uint32_t
+rofi_icon_fetcher_query_advanced(G_GNUC_UNUSED const char *name,
+                                 G_GNUC_UNUSED G_GNUC_UNUSED const int wsize,
+                                 G_GNUC_UNUSED const int hsize) {
   return 0;
 }
 

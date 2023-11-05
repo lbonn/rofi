@@ -37,6 +37,7 @@
 #include <glib.h>
 #include <wayland-client.h>
 
+#include "display.h"
 #include "helper.h"
 #include "modes/wayland-window.h"
 #include "rofi.h"
@@ -572,9 +573,10 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
 }
 
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
-                                  unsigned int height, guint scale) {
+                                  unsigned int height) {
   WaylandWindowModePrivateData *pd =
       (WaylandWindowModePrivateData *)mode_get_private_data(sw);
+  const guint scale = display_scale();
 
   g_return_val_if_fail(pd != NULL, NULL);
 
@@ -600,7 +602,7 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
   gchar *app_id_lower = g_utf8_strdown(toplevel->app_id, -1);
   toplevel->cached_icon_size = height;
   toplevel->cached_icon_scale = scale;
-  toplevel->cached_icon_uid = rofi_icon_fetcher_query(app_id_lower, height, scale);
+  toplevel->cached_icon_uid = rofi_icon_fetcher_query(app_id_lower, height);
   g_free(app_id_lower);
 
   return rofi_icon_fetcher_get(toplevel->cached_icon_uid);

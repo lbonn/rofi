@@ -44,6 +44,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "display.h"
 #include "helper.h"
 #include "history.h"
 #include "mode-private.h"
@@ -1349,11 +1350,11 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
 }
 
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
-                                  unsigned int height, guint scale) {
+                                  unsigned int height) {
   DRunModePrivateData *pd = (DRunModePrivateData *)mode_get_private_data(sw);
+  const guint scale = display_scale();
   if (pd->file_complete) {
-    return pd->completer->_get_icon(pd->completer, selected_line, height,
-                                    scale);
+    return pd->completer->_get_icon(pd->completer, selected_line, height);
   }
   g_return_val_if_fail(pd->entry_list != NULL, NULL);
   DRunModeEntry *dr = &(pd->entry_list[selected_line]);
@@ -1363,7 +1364,7 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
       cairo_surface_t *icon = rofi_icon_fetcher_get(dr->icon_fetch_uid);
       return icon;
     }
-    dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->icon_name, height, scale);
+    dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->icon_name, height);
     dr->icon_fetch_size = height;
     dr->icon_fetch_scale = scale;
     cairo_surface_t *icon = rofi_icon_fetcher_get(dr->icon_fetch_uid);

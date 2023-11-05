@@ -26,9 +26,8 @@ void rofi_icon_fetcher_destroy(void);
 /**
  * @param name The name of the icon to fetch.
  * @param size The size of the icon to fetch.
- * @param scale The scale of the icon to fetch.
  *
- * Query the icon-theme for icon with name, size, and scale.
+ * Query the icon-theme for icon with name and size.
  * The returned icon will be the best match for the requested size, it should
  * still be resized to the actual size.
  *
@@ -36,16 +35,14 @@ void rofi_icon_fetcher_destroy(void);
  *
  * @returns the uid identifying the request.
  */
-uint32_t rofi_icon_fetcher_query(const char *name, const int size,
-                                 const guint scale);
+uint32_t rofi_icon_fetcher_query(const char *name, const int size);
 
 /**
  * @param name The name of the icon to fetch.
  * @param wsize The width of the icon to fetch.
  * @param hsize The height of the icon to fetch.
- * @param scale The scale of the icon to fetch.
  *
- * Query the icon-theme for icon with name, size, and scale.
+ * Query the icon-theme for icon with name and size.
  * The returned icon will be the best match for the requested size, it should
  * still be resized to the actual size. For icons it will take the min of wsize
  * and hsize.
@@ -55,7 +52,7 @@ uint32_t rofi_icon_fetcher_query(const char *name, const int size,
  * @returns the uid identifying the request.
  */
 uint32_t rofi_icon_fetcher_query_advanced(const char *name, const int wsize,
-                                          const int hsize, const guint scale);
+                                          const int hsize);
 
 /**
  * @param uid The unique id representing the matching request.

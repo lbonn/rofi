@@ -383,7 +383,7 @@ static void rofi_icon_fetcher_worker(thread_state *sdata,
 }
 
 uint32_t rofi_icon_fetcher_query_advanced(const char *name, const int wsize,
-                                          const int hsize, const guint scale) {
+                                          const int hsize) {
   g_debug("Query: %s(%dx%d)", name, wsize, hsize);
   IconFetcherNameEntry *entry =
       g_hash_table_lookup(rofi_icon_fetcher_data->icon_cache, name);
@@ -393,6 +393,7 @@ uint32_t rofi_icon_fetcher_query_advanced(const char *name, const int wsize,
     g_hash_table_insert(rofi_icon_fetcher_data->icon_cache, entry->name, entry);
   }
   IconFetcherEntry *sentry;
+  const guint scale = display_scale();
   for (GList *iter = g_list_first(entry->sizes); iter;
        iter = g_list_next(iter)) {
     sentry = iter->data;
@@ -422,8 +423,7 @@ uint32_t rofi_icon_fetcher_query_advanced(const char *name, const int wsize,
 
   return sentry->uid;
 }
-uint32_t rofi_icon_fetcher_query(const char *name, const int size,
-                                 const guint scale) {
+uint32_t rofi_icon_fetcher_query(const char *name, const int size) {
   g_debug("Query: %s(%d)", name, size);
   IconFetcherNameEntry *entry =
       g_hash_table_lookup(rofi_icon_fetcher_data->icon_cache, name);
@@ -433,6 +433,7 @@ uint32_t rofi_icon_fetcher_query(const char *name, const int size,
     g_hash_table_insert(rofi_icon_fetcher_data->icon_cache, entry->name, entry);
   }
   IconFetcherEntry *sentry;
+  const guint scale = display_scale();
   for (GList *iter = g_list_first(entry->sizes); iter;
        iter = g_list_next(iter)) {
     sentry = iter->data;

@@ -46,6 +46,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "display.h"
 #include "helper.h"
 #include "history.h"
 #include "modes/filebrowser.h"
@@ -538,11 +539,11 @@ static char *run_get_message(const Mode *sw) {
   return NULL;
 }
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
-                                  unsigned int height, guint scale) {
+                                  unsigned int height) {
   RunModePrivateData *pd = (RunModePrivateData *)mode_get_private_data(sw);
+  const guint scale = display_scale();
   if (pd->file_complete) {
-    return pd->completer->_get_icon(pd->completer, selected_line, height,
-                                    scale);
+    return pd->completer->_get_icon(pd->completer, selected_line, height);
   }
   g_return_val_if_fail(pd->cmd_list != NULL, NULL);
   RunEntry *dr = &(pd->cmd_list[selected_line]);
@@ -555,7 +556,7 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
   /** lookup icon */
   char **str = g_strsplit(dr->entry, " ", 2);
   if (str) {
-    dr->icon_fetch_uid = rofi_icon_fetcher_query(str[0], height, scale);
+    dr->icon_fetch_uid = rofi_icon_fetcher_query(str[0], height);
     dr->icon_fetch_size = height;
     dr->icon_fetch_scale = scale;
     g_strfreev(str);
