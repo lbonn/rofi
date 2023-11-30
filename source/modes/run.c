@@ -66,7 +66,6 @@ typedef struct {
   char *entry;
   uint32_t icon_fetch_uid;
   uint32_t icon_fetch_size;
-  guint icon_fetch_scale;
   /* Surface holding the icon. */
   cairo_surface_t *icon;
 } RunEntry;
@@ -538,26 +537,23 @@ static char *run_get_message(const Mode *sw) {
   return NULL;
 }
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
-                                  unsigned int height, guint scale) {
+                                  unsigned int height) {
   RunModePrivateData *pd = (RunModePrivateData *)mode_get_private_data(sw);
   if (pd->file_complete) {
-    return pd->completer->_get_icon(pd->completer, selected_line, height,
-                                    scale);
+    return pd->completer->_get_icon(pd->completer, selected_line, height);
   }
   g_return_val_if_fail(pd->cmd_list != NULL, NULL);
   RunEntry *dr = &(pd->cmd_list[selected_line]);
 
-  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height &&
-      dr->icon_fetch_scale == scale) {
+  if (dr->icon_fetch_uid > 0 && dr->icon_fetch_size == height) {
     cairo_surface_t *icon = rofi_icon_fetcher_get(dr->icon_fetch_uid);
     return icon;
   }
   /** lookup icon */
   char **str = g_strsplit(dr->entry, " ", 2);
   if (str) {
-    dr->icon_fetch_uid = rofi_icon_fetcher_query(str[0], height, scale);
+    dr->icon_fetch_uid = rofi_icon_fetcher_query(str[0], height);
     dr->icon_fetch_size = height;
-    dr->icon_fetch_scale = scale;
     g_strfreev(str);
     cairo_surface_t *icon = rofi_icon_fetcher_get(dr->icon_fetch_uid);
     return icon;

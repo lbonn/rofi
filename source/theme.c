@@ -51,7 +51,6 @@
  * list of config files we parsed.
  */
 GList *parsed_config_files = NULL;
-static disp_scale_func disp_scale = NULL;
 
 /** cleanup (free) the list of parsed config files. */
 void rofi_theme_free_parsed_files(void) {
@@ -1084,7 +1083,6 @@ void rofi_theme_get_color(const widget *widget, const char *property,
 
 static gboolean rofi_theme_get_image_inside(Property *p, const widget *widget,
                                             const char *property, cairo_t *d) {
-  const guint scale = disp_scale ? disp_scale() : 1;
   if (p) {
     if (p->type == P_INHERIT) {
       if (widget->parent) {
@@ -1115,18 +1113,16 @@ static gboolean rofi_theme_get_image_inside(Property *p, const widget *widget,
         break;
       }
       if (p->value.image.surface_id == 0 || p->value.image.wsize != wsize ||
-          p->value.image.hsize != hsize || p->value.image.scale != scale) {
-        p->value.image.surface_id = rofi_icon_fetcher_query_advanced(
-            p->value.image.url, wsize, hsize, scale);
+          p->value.image.hsize != hsize) {
+        p->value.image.surface_id =
+            rofi_icon_fetcher_query_advanced(p->value.image.url, wsize, hsize);
         p->value.image.wsize = wsize;
         p->value.image.hsize = hsize;
-        p->value.image.scale = scale;
       }
       cairo_surface_t *img = rofi_icon_fetcher_get(p->value.image.surface_id);
 
       if (img != NULL) {
         cairo_pattern_t *pat = cairo_pattern_create_for_surface(img);
-        cairo_surface_set_device_scale(img, scale, scale);
         cairo_pattern_set_extend(pat, CAIRO_EXTEND_REPEAT);
         cairo_set_source(d, pat);
         cairo_pattern_destroy(pat);
@@ -1679,8 +1675,4 @@ gboolean rofi_theme_has_property(const widget *widget, const char *property) {
   ThemeWidget *wid = rofi_theme_find_widget(widget->name, widget->state, FALSE);
   Property *p = rofi_theme_find_property(wid, P_STRING, property, FALSE);
   return rofi_theme_has_property_inside(p, widget, property);
-}
-
-void rofi_theme_set_disp_scale_func(disp_scale_func func) {
-  disp_scale = func;
 }

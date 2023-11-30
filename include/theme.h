@@ -402,14 +402,4 @@ GList *rofi_theme_get_list_distance(const widget *widget, const char *property);
  * @returns a GList of strings.
  */
 GList *rofi_theme_get_list_strings(const widget *widget, const char *property);
-
-/**
- * Display scale function type
- */
-typedef guint (*disp_scale_func)(void);
-
-/**
- * @param func The function pointer to scale getter.
- */
-void rofi_theme_set_disp_scale_func(disp_scale_func func);
 #endif

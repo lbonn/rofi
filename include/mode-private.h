@@ -76,7 +76,6 @@ typedef char *(*_mode_get_display_value)(const Mode *sw,
  * @param sw The #Mode pointer
  * @param selected_line The selected line
  * @param height The height of the icon
- * @param scale The scale of the icon
  *
  * Obtains the icon if available
  *
@@ -84,8 +83,7 @@ typedef char *(*_mode_get_display_value)(const Mode *sw,
  */
 typedef cairo_surface_t *(*_mode_get_icon)(const Mode *sw,
                                            unsigned int selected_line,
-                                           unsigned int height,
-                                           guint scale);
+                                           unsigned int height);
 
 /**
  * @param sw The #Mode pointer
