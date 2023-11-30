@@ -286,12 +286,12 @@ static char *combi_get_completion(const Mode *sw, unsigned int index) {
 }
 
 static cairo_surface_t *combi_get_icon(const Mode *sw, unsigned int index,
-                                       unsigned int height, guint scale) {
+                                       unsigned int height) {
   CombiModePrivateData *pd = mode_get_private_data(sw);
   for (unsigned i = 0; i < pd->num_switchers; i++) {
     if (index >= pd->starts[i] && index < (pd->starts[i] + pd->lengths[i])) {
-      cairo_surface_t *icon = mode_get_icon(
-          pd->switchers[i].mode, index - pd->starts[i], height, scale);
+      cairo_surface_t *icon =
+          mode_get_icon(pd->switchers[i].mode, index - pd->starts[i], height);
       return icon;
     }
   }

@@ -449,10 +449,10 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
     return rofi_icon_fetcher_get(dr->icon_fetch_uid);
   }
   if (rofi_icon_fetcher_file_is_image(dr->path)) {
-    dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->path, height, scale);
+    dr->icon_fetch_uid = rofi_icon_fetcher_query(dr->path, height);
   } else {
     dr->icon_fetch_uid =
-        rofi_icon_fetcher_query(rb_icon_name[dr->type], height, scale);
+        rofi_icon_fetcher_query(rb_icon_name[dr->type], height);
   }
   dr->icon_fetch_size = height;
   return rofi_icon_fetcher_get(dr->icon_fetch_uid);
