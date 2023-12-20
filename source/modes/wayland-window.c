@@ -549,7 +549,7 @@ static char *_generate_display_string(const WaylandWindowModePrivateData *pd,
 }
 
 static char *_get_display_value(const Mode *sw, unsigned int selected_line,
-                                G_GNUC_UNUSED int *state,
+                                int *state,
                                 G_GNUC_UNUSED GList **attr_list,
                                 int get_entry) {
   WaylandWindowModePrivateData *pd =
@@ -568,6 +568,7 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
   if (toplevel->state & TOPLEVEL_STATE_ACTIVATED) {
     *state |= ACTIVE;
   }
+  *state |= MARKUP;
 
   return get_entry ? _generate_display_string(pd, toplevel) : NULL;
 }
