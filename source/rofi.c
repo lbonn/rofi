@@ -357,13 +357,16 @@ static void help(G_GNUC_UNUSED int argc, char **argv) {
   print_options();
   printf("\n");
 #ifdef ENABLE_XCB
-  printf("Detected Window manager:\n");
-  char *wm = x11_helper_get_window_manager();
-  if (wm) {
-    printf("\t• %s\n", wm);
-    g_free(wm);
-  } else {
-    printf("\t• No window manager detected.\n");
+  if (config.backend == DISPLAY_XCB) {
+    printf("Detected Window manager:\n");
+    char *wm = x11_helper_get_window_manager();
+    if (wm) {
+      printf("\t• %s\n", wm);
+      g_free(wm);
+    } else {
+      printf("\t• No window manager detected.\n");
+    }
+    printf("\n");
   }
   printf("\n");
 #endif
