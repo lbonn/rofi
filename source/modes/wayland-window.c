@@ -611,21 +611,21 @@ static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
 
 #include "mode-private.h"
 
-Mode wayland_window_mode = {
-    .name = "window",
-    .cfg_name_key = "display-window",
-    ._init = wayland_window_mode_init,
-    ._destroy = wayland_window_mode_destroy,
-    ._get_num_entries = wayland_window_mode_get_num_entries,
-    ._result = wayland_window_mode_result,
-    ._token_match = wayland_window_token_match,
-    ._get_display_value = _get_display_value,
-    ._get_icon = _get_icon,
-    ._get_completion = NULL,
-    ._preprocess_input = NULL,
-    ._get_message = NULL,
-    .private_data = NULL,
-    .free = NULL,
-};
+Mode wayland_window_mode = {.name = "window",
+                            .cfg_name_key = "display-window",
+                            ._init = wayland_window_mode_init,
+                            ._destroy = wayland_window_mode_destroy,
+                            ._get_num_entries =
+                                wayland_window_mode_get_num_entries,
+                            ._result = wayland_window_mode_result,
+                            ._token_match = wayland_window_token_match,
+                            ._get_display_value = _get_display_value,
+                            ._get_icon = _get_icon,
+                            ._get_completion = NULL,
+                            ._preprocess_input = NULL,
+                            ._get_message = NULL,
+                            .private_data = NULL,
+                            .free = NULL,
+                            .type = MODE_TYPE_SWITCHER};
 
 #endif // WINDOW_MODE
