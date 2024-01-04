@@ -1029,6 +1029,25 @@ static void wayland_output_release(wayland_output *self) {
   g_free(self);
 }
 
+static wayland_output *wayland_output_by_name(const char *name) {
+#ifdef WL_OUTPUT_NAME_SINCE_VERSION
+  GHashTableIter iter;
+  wayland_output *output;
+
+  g_debug("Monitor lookup  by name : %s", name);
+
+  g_hash_table_iter_init(&iter, wayland->outputs);
+  while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&output)) {
+    if (g_strcmp0(output->name, name) == 0) {
+      return output;
+    }
+  }
+#endif
+  g_debug("Monitor lookup  by name failed: %s", name);
+
+  return NULL;
+}
+
 static void wayland_output_done(void *data, struct wl_output *output) {
   wayland_output *self = data;
 
@@ -1341,12 +1360,21 @@ static gboolean wayland_display_setup(GMainLoop *main_loop,
     return FALSE;
   }
 
-  wayland->surface = wl_compositor_create_surface(wayland->compositor);
-
   wayland->bindings_seat = nk_bindings_seat_new(bindings, XKB_CONTEXT_NO_FLAGS);
 
+  // Wait for output information
+  wl_display_roundtrip(wayland->display);
+
+  return TRUE;
+}
+
+static gboolean wayland_display_late_setup(void) {
+  wayland_output *output = wayland_output_by_name(config.monitor);
+
+  wayland->surface = wl_compositor_create_surface(wayland->compositor);
   wayland->wlr_surface = zwlr_layer_shell_v1_get_layer_surface(
-      wayland->layer_shell, wayland->surface, NULL,
+      wayland->layer_shell, wayland->surface,
+      (output != NULL ? output->output : NULL),
       ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY, "rofi");
 
   // Set size zero and anchor on all corners to get the usable screen size
@@ -1369,8 +1397,6 @@ static gboolean wayland_display_setup(GMainLoop *main_loop,
 
   return TRUE;
 }
-
-static gboolean wayland_display_late_setup(void) { return TRUE; }
 
 gboolean display_get_surface_dimensions(int *width, int *height) {
   if (wayland->layer_width != 0) {
