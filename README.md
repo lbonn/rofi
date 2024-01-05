@@ -151,14 +151,15 @@ To force the use of the xcb backend (if enabled during build), the `-x11` option
 
     rofi -x11 ...
 
-### Differences with rofi (in wayland mode)
+### Missing features in Wayland mode
 
-  * `-normal-window` flag in Wayland mode. Though it is also considered as a toy/deprecated feature in Upstream rofi
-  * selecting which monitor to run rofi on in Wayland mode, rofi only shows up on the currently focused monitor
+Due to the different architecture and available APIs in Wayland mode, some original rofi features are difficult or impossible to replicate
+
+  * `-normal-window` flag. Though it is also considered as a toy/deprecated feature in Upstream rofi. Not impossible but would require some work.
+  * `-monitor -n` for fine-grained selection of monitor to display rofi on
   * some window locations parameters work partially, `x-offset` and `y-offset` are only working from screen edges
-  * some X11-specific options like `-dpi` or fake transparency
-
-Window switcher mode is now ready to use on compositors with support for wlr-foreign-toplevel-management.
+  * fake transparency
+  * window mode on KWin which implements different protocols than the wlr familiy
 
 ## Manpage
 
