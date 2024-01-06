@@ -41,7 +41,8 @@ typedef struct {
   struct wl_compositor *compositor;
 
   struct wl_data_device_manager *data_device_manager;
-  struct zwp_primary_selection_device_manager_v1  *primary_selection_device_manager;
+  struct zwp_primary_selection_device_manager_v1
+      *primary_selection_device_manager;
 
   struct zwlr_layer_shell_v1 *layer_shell;
 
