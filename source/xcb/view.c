@@ -58,11 +58,11 @@
 #include "settings.h"
 #include "timings.h"
 
-#include "modes/modes.h"
 #include "display.h"
 #include "helper-theme.h"
 #include "helper.h"
 #include "mode.h"
+#include "modes/modes.h"
 #include "xcb-internal.h"
 #include "xrmoptions.h"
 
@@ -513,8 +513,7 @@ static gboolean xcb_rofi_view_reload_idle(G_GNUC_UNUSED gpointer data) {
   if (state) {
     // For UI update on this.
     if (state->tb_total_rows) {
-      char *r =
-          g_strdup_printf("%u", mode_get_num_entries(state->sw));
+      char *r = g_strdup_printf("%u", mode_get_num_entries(state->sw));
       textbox_text(state->tb_total_rows, r);
       g_free(r);
     }
@@ -676,7 +675,6 @@ static void open_xim_callback(xcb_xim_t *im, G_GNUC_UNUSED void *user_data) {
   free(nested.data);
 }
 #endif
-
 
 static void xcb___create_window(MenuFlags menu_flags) {
   // In password mode, disable the entry history.

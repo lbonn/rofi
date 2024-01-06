@@ -217,7 +217,7 @@ wayland_buffer_pool *display_buffer_pool_new(gint width, gint height) {
 }
 
 void display_buffer_pool_free(wayland_buffer_pool *self) {
-  if ( self == NULL ) {
+  if (self == NULL) {
     return;
   }
   self->to_free = TRUE;
@@ -322,9 +322,9 @@ static void wayland_frame_callback(void *data, struct wl_callback *callback,
     rofi_view_frame_callback();
   }
   if (wayland->surface != NULL) {
-      wayland->frame_cb = wl_surface_frame(wayland->surface);
-      wl_callback_add_listener(wayland->frame_cb,
-                               &wayland_frame_wl_callback_listener, wayland);
+    wayland->frame_cb = wl_surface_frame(wayland->surface);
+    wl_callback_add_listener(wayland->frame_cb,
+                             &wayland_frame_wl_callback_listener, wayland);
   }
 }
 
@@ -570,7 +570,8 @@ static void wayland_pointer_send_events(wayland_seat *self) {
   }
 
   if (self->motion.x > -1 || self->motion.y > -1) {
-    rofi_view_handle_mouse_motion(state, self->motion.x, self->motion.y, config.hover_select);
+    rofi_view_handle_mouse_motion(state, self->motion.x, self->motion.y,
+                                  config.hover_select);
     self->motion.x = -1;
     self->motion.y = -1;
   }
@@ -776,35 +777,39 @@ struct clipboard_read_info {
   clipboard_read_callback callback;
 };
 
-static gboolean clipboard_read_glib_callback(GIOChannel *channel, GIOCondition condition, gpointer opaque) {
+static gboolean clipboard_read_glib_callback(GIOChannel *channel,
+                                             GIOCondition condition,
+                                             gpointer opaque) {
   struct clipboard_read_info *info = opaque;
   gsize read;
 
-  switch (g_io_channel_read_chars(channel, info->buffer + info->size, CLIPBOARD_READ_INCREMENT, &read, NULL)) {
-    case G_IO_STATUS_AGAIN:
-      return TRUE;
+  switch (g_io_channel_read_chars(channel, info->buffer + info->size,
+                                  CLIPBOARD_READ_INCREMENT, &read, NULL)) {
+  case G_IO_STATUS_AGAIN:
+    return TRUE;
 
-    case G_IO_STATUS_NORMAL: {
-      info->size += read;
-      info->buffer = g_realloc(info->buffer, info->size + CLIPBOARD_READ_INCREMENT);
-      if (!info->buffer) {
-        g_io_channel_shutdown(channel, FALSE, NULL);
-        g_io_channel_unref(channel);
-        close(info->fd);
-        g_free(info);
-        return FALSE;
-      }
-      return TRUE;
-    }
-
-    default:
-      info->buffer[info->size] = '\0';
-      info->callback(info->buffer);
+  case G_IO_STATUS_NORMAL: {
+    info->size += read;
+    info->buffer =
+        g_realloc(info->buffer, info->size + CLIPBOARD_READ_INCREMENT);
+    if (!info->buffer) {
       g_io_channel_shutdown(channel, FALSE, NULL);
       g_io_channel_unref(channel);
       close(info->fd);
       g_free(info);
       return FALSE;
+    }
+    return TRUE;
+  }
+
+  default:
+    info->buffer[info->size] = '\0';
+    info->callback(info->buffer);
+    g_io_channel_shutdown(channel, FALSE, NULL);
+    g_io_channel_unref(channel);
+    close(info->fd);
+    g_free(info);
+    return FALSE;
   }
 }
 
@@ -831,7 +836,7 @@ static gboolean clipboard_read_data(int fd, clipboard_read_callback callback) {
   }
 
   g_io_add_watch(channel, G_IO_IN | G_IO_HUP | G_IO_ERR,
-      clipboard_read_glib_callback, info);
+                 clipboard_read_glib_callback, info);
 
   return TRUE;
 }
@@ -839,13 +844,12 @@ static gboolean clipboard_read_data(int fd, clipboard_read_callback callback) {
 static void data_offer_handle_offer(void *data, struct wl_data_offer *offer,
                                     const char *mime_type) {}
 
-static void data_offer_handle_source_actions(void *data,
-                       struct wl_data_offer *wl_data_offer,
-                       uint32_t source_actions) {}
+static void data_offer_handle_source_actions(
+    void *data, struct wl_data_offer *wl_data_offer, uint32_t source_actions) {}
 
 static void data_offer_handle_action(void *data,
-               struct wl_data_offer *wl_data_offer,
-               uint32_t dnd_action) {}
+                                     struct wl_data_offer *wl_data_offer,
+                                     uint32_t dnd_action) {}
 
 static const struct wl_data_offer_listener data_offer_listener = {
     .offer = data_offer_handle_offer,
@@ -1273,7 +1277,6 @@ static void wayland_layer_shell_surface_configure(
   zwlr_layer_surface_v1_ack_configure(surface, serial);
 }
 
-
 static void
 wayland_layer_shell_surface_closed(void *data,
                                    struct zwlr_layer_surface_v1 *surface) {
@@ -1294,7 +1297,7 @@ wayland_layer_shell_surface_closed(void *data,
 
   RofiViewState *state = rofi_view_get_active();
   if (state != NULL) {
-      rofi_view_set_size(state, -1, -1);
+    rofi_view_set_size(state, -1, -1);
   }
 }
 
@@ -1322,15 +1325,15 @@ static gboolean wayland_cursor_reload_theme(guint scale) {
   guint64 cursor_size = 24;
   char *env_cursor_size = (char *)g_getenv("XCURSOR_SIZE");
   if (env_cursor_size && strlen(env_cursor_size) > 0) {
-      guint64 size = g_ascii_strtoull(env_cursor_size, NULL, 10);
-      if (0 < size && size < G_MAXUINT64) {
-          cursor_size = size;
-      }
+    guint64 size = g_ascii_strtoull(env_cursor_size, NULL, 10);
+    if (0 < size && size < G_MAXUINT64) {
+      cursor_size = size;
+    }
   }
   cursor_size *= scale;
 
-  wayland->cursor.theme =
-      wl_cursor_theme_load(wayland->cursor.theme_name, cursor_size, wayland->shm);
+  wayland->cursor.theme = wl_cursor_theme_load(wayland->cursor.theme_name,
+                                               cursor_size, wayland->shm);
   if (wayland->cursor.theme != NULL) {
     const char *const *cname = (const char *const *)wayland->cursor.name;
     for (cname = (cname != NULL) ? cname : wayland_cursor_names;
@@ -1440,8 +1443,8 @@ gboolean display_get_surface_dimensions(int *width, int *height) {
   return FALSE;
 }
 
-void display_set_surface_dimensions(
-    int width, int height, int x_margin, int y_margin, int loc) {
+void display_set_surface_dimensions(int width, int height, int x_margin,
+                                    int y_margin, int loc) {
 
   wayland->layer_width = width;
   wayland->layer_height = height;
@@ -1497,8 +1500,7 @@ void display_set_surface_dimensions(
   // can safely set contradictory margins (e.g. top vs bottom) - at most one of
   // the margins on a given axis will have effect.
   // This also means that margin has no effect if the window is centered. :(
-  zwlr_layer_surface_v1_set_margin(wayland->wlr_surface,
-                                   y_margin, -x_margin,
+  zwlr_layer_surface_v1_set_margin(wayland->wlr_surface, y_margin, -x_margin,
                                    -y_margin, x_margin);
 }
 
@@ -1590,7 +1592,7 @@ static char *wayland_get_clipboard_data(int type) {
 
 static void wayland_set_fullscreen_mode() {
   if (!wayland->wlr_surface) {
-      return;
+    return;
   }
   zwlr_layer_surface_v1_set_exclusive_zone(wayland->wlr_surface, -1);
   zwlr_layer_surface_v1_set_size(wayland->wlr_surface, 0, 0);

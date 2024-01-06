@@ -45,11 +45,11 @@
 #include "settings.h"
 #include "timings.h"
 
-#include "modes/modes.h"
 #include "display.h"
 #include "helper-theme.h"
 #include "helper.h"
 #include "mode.h"
+#include "modes/modes.h"
 
 #include "view-internal.h"
 #include "view.h"
@@ -96,7 +96,8 @@ static struct {
 static void wayland_rofi_view_get_current_monitor(int *width, int *height) {
   // TODO: handle changing monitor resolution
   if (WlState.monitor_width == 0 && WlState.monitor_height == 0) {
-    display_get_surface_dimensions(&WlState.monitor_width, &WlState.monitor_height);
+    display_get_surface_dimensions(&WlState.monitor_width,
+                                   &WlState.monitor_height);
   }
 
   if (width) {
@@ -129,7 +130,8 @@ static const int loc_transtable[9] = {
     WL_EAST,   WL_SOUTH | WL_EAST, WL_SOUTH, WL_SOUTH | WL_WEST,
     WL_WEST};
 
-static void wayland_rofi_view_calculate_window_position(G_GNUC_UNUSED RofiViewState *state) {}
+static void wayland_rofi_view_calculate_window_position(
+    G_GNUC_UNUSED RofiViewState *state) {}
 
 static int rofi_get_location(RofiViewState *state) {
   return rofi_theme_get_position(WIDGET(state->main_window), "location",
@@ -139,8 +141,8 @@ static int rofi_get_location(RofiViewState *state) {
 static int rofi_get_offset_px(RofiViewState *state, RofiOrientation ori) {
   char *property = ori == ROFI_ORIENTATION_HORIZONTAL ? "x-offset" : "y-offset";
 
-  RofiDistance offset = rofi_theme_get_distance(WIDGET(state->main_window),
-                                                property, 0);
+  RofiDistance offset =
+      rofi_theme_get_distance(WIDGET(state->main_window), property, 0);
   return distance_get_pixel(offset, ori);
 }
 
@@ -152,9 +154,8 @@ static void wayland_rofi_view_window_update_size(RofiViewState *state) {
   int offset_y = rofi_get_offset_px(state, ROFI_ORIENTATION_VERTICAL);
 
   widget_resize(WIDGET(state->main_window), state->width, state->height);
-  display_set_surface_dimensions(state->width, state->height,
-                                 offset_x, offset_y,
-                                 rofi_get_location(state));
+  display_set_surface_dimensions(state->width, state->height, offset_x,
+                                 offset_y, rofi_get_location(state));
   rofi_view_pool_refresh();
 }
 
@@ -189,8 +190,7 @@ static gboolean wayland_rofi_view_reload_idle(G_GNUC_UNUSED gpointer data) {
   if (state) {
     // For UI update on this.
     if (state->tb_total_rows) {
-      char *r =
-          g_strdup_printf("%u", mode_get_num_entries(state->sw));
+      char *r = g_strdup_printf("%u", mode_get_num_entries(state->sw));
       textbox_text(state->tb_total_rows, r);
       g_free(r);
     }
@@ -453,7 +453,8 @@ static void wayland_rofi_view_cleanup() {
   input_history_save();
 }
 
-static void wayland_rofi_view_set_window_title(G_GNUC_UNUSED const char *title) {}
+static void
+wayland_rofi_view_set_window_title(G_GNUC_UNUSED const char *title) {}
 
 static void wayland_rofi_view_pool_refresh(void) {
   RofiViewState *state = rofi_view_get_active();

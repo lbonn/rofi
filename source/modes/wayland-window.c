@@ -549,8 +549,7 @@ static char *_generate_display_string(const WaylandWindowModePrivateData *pd,
 }
 
 static char *_get_display_value(const Mode *sw, unsigned int selected_line,
-                                int *state,
-                                G_GNUC_UNUSED GList **attr_list,
+                                int *state, G_GNUC_UNUSED GList **attr_list,
                                 int get_entry) {
   WaylandWindowModePrivateData *pd =
       (WaylandWindowModePrivateData *)mode_get_private_data(sw);
