@@ -104,6 +104,8 @@ struct _display_buffer_pool {
   wayland_buffer *buffers;
 };
 
+static gboolean wayland_display_late_setup(void);
+
 static wayland_stuff wayland_;
 wayland_stuff *wayland = &wayland_;
 static const cairo_user_data_key_t wayland_cairo_surface_user_data;
@@ -294,7 +296,7 @@ display_buffer_pool_get_next_buffer(wayland_buffer_pool *pool) {
 }
 
 void display_surface_commit(cairo_surface_t *surface) {
-  if (surface == NULL) {
+  if (surface == NULL || wayland->surface == NULL) {
     return;
   }
 
@@ -319,9 +321,11 @@ static void wayland_frame_callback(void *data, struct wl_callback *callback,
     wl_callback_destroy(wayland->frame_cb);
     rofi_view_frame_callback();
   }
-  wayland->frame_cb = wl_surface_frame(wayland->surface);
-  wl_callback_add_listener(wayland->frame_cb,
-                           &wayland_frame_wl_callback_listener, wayland);
+  if (wayland->surface != NULL) {
+      wayland->frame_cb = wl_surface_frame(wayland->surface);
+      wl_callback_add_listener(wayland->frame_cb,
+                               &wayland_frame_wl_callback_listener, wayland);
+  }
 }
 
 static void wayland_keyboard_keymap(void *data, struct wl_keyboard *keyboard,
@@ -1023,6 +1027,8 @@ static const struct wl_seat_listener wayland_seat_listener = {
 };
 
 static void wayland_output_release(wayland_output *self) {
+  g_debug("Output release: %s", self->name);
+
   if (wl_output_get_version(self->output) >= WL_OUTPUT_RELEASE_SINCE_VERSION) {
     wl_output_release(self->output);
   } else {
@@ -1267,12 +1273,29 @@ static void wayland_layer_shell_surface_configure(
   zwlr_layer_surface_v1_ack_configure(surface, serial);
 }
 
+
 static void
 wayland_layer_shell_surface_closed(void *data,
                                    struct zwlr_layer_surface_v1 *surface) {
+  g_debug("Layer shell surface closed");
+
   zwlr_layer_surface_v1_destroy(surface);
   wl_surface_destroy(wayland->surface);
   wayland->surface = NULL;
+
+  // In this case, we recreate the layer shell surface the best we can and
+  // re-initialize everything:
+
+  // recreate layer shell
+  wayland_display_late_setup();
+
+  // create new buffers with the correct scaled size
+  rofi_view_pool_refresh();
+
+  RofiViewState *state = rofi_view_get_active();
+  if (state != NULL) {
+      rofi_view_set_size(state, -1, -1);
+  }
 }
 
 static const struct zwlr_layer_surface_v1_listener
