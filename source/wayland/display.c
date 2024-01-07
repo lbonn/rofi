@@ -622,14 +622,35 @@ static void wayland_pointer_send_events(wayland_seat *self) {
   rofi_view_maybe_update(state);
 }
 
-static void wayland_pointer_enter(void *data, struct wl_pointer *pointer,
-                                  uint32_t serial, struct wl_surface *surface,
-                                  wl_fixed_t x, wl_fixed_t y) {
-  wayland_seat *self = data;
+static struct wl_cursor *
+rofi_cursor_type_to_wl_cursor(struct wl_cursor_theme *theme,
+                              RofiCursorType type) {
+  static const char *const default_names[] = {
+      "default", "left_ptr", "top_left_arrow", "left-arrow", NULL};
+  static const char *const pointer_names[] = {"pointer", "hand1", NULL};
+  static const char *const text_names[] = {"text", "xterm", NULL};
 
-  if (!wayland_cursor_reload_theme(wayland->scale))
-    return;
+  const char *const *name;
+  struct wl_cursor *cursor = NULL;
 
+  switch (type) {
+  case ROFI_CURSOR_POINTER:
+    name = pointer_names;
+    break;
+  case ROFI_CURSOR_TEXT:
+    name = text_names;
+    break;
+  default:
+    name = default_names;
+    break;
+  }
+  for (; cursor == NULL && *name != NULL; ++name) {
+    cursor = wl_cursor_theme_get_cursor(theme, *name);
+  }
+  return cursor;
+}
+
+static void wayland_cursor_update_for_seat(wayland_seat *seat) {
   if (wayland->cursor.surface == NULL) {
     wayland->cursor.surface = wl_compositor_create_surface(wayland->compositor);
   }
@@ -641,9 +662,51 @@ static void wayland_pointer_enter(void *data, struct wl_pointer *pointer,
   }
 
   wl_pointer_set_cursor(
-      self->pointer, serial, wayland->cursor.surface,
+      seat->pointer, seat->pointer_serial, wayland->cursor.surface,
       wayland->cursor.image->hotspot_x / wayland->cursor.scale,
       wayland->cursor.image->hotspot_y / wayland->cursor.scale);
+}
+
+static void wayland_pointer_enter(void *data, struct wl_pointer *pointer,
+                                  uint32_t serial, struct wl_surface *surface,
+                                  wl_fixed_t x, wl_fixed_t y) {
+  wayland_seat *self = data;
+
+  self->pointer_serial = serial;
+
+  if (!wayland_cursor_reload_theme(wayland->scale))
+    return;
+
+  wayland_cursor_update_for_seat(self);
+}
+
+void wayland_display_set_cursor_type(RofiCursorType type) {
+  wayland_seat *seat;
+  GHashTableIter iter;
+  struct wl_cursor *cursor;
+
+  if (wayland->cursor.type == type) {
+    return;
+  }
+  wayland->cursor.type = type;
+
+  if (wayland->cursor.theme == NULL) {
+    return;
+  }
+
+  cursor = rofi_cursor_type_to_wl_cursor(wayland->cursor.theme, type);
+  if (cursor == NULL) {
+    g_info("Failed to load cursor type %d", type);
+    return;
+  }
+  wayland->cursor.cursor = cursor;
+
+  g_hash_table_iter_init(&iter, wayland->seats);
+  while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&seat)) {
+    if (seat->pointer != NULL) {
+      wayland_cursor_update_for_seat(seat);
+    }
+  }
 }
 
 static void wayland_pointer_leave(void *data, struct wl_pointer *pointer,
@@ -1140,9 +1203,6 @@ static const struct wl_output_listener wayland_output_listener = {
 #endif
 };
 
-static const char *const wayland_cursor_names[] = {
-    "left_ptr", "default", "top_left_arrow", "left-arrow", NULL};
-
 static void wayland_registry_handle_global(void *data,
                                            struct wl_registry *registry,
                                            uint32_t name, const char *interface,
@@ -1337,12 +1397,8 @@ static gboolean wayland_cursor_reload_theme(guint scale) {
   wayland->cursor.theme = wl_cursor_theme_load(wayland->cursor.theme_name,
                                                cursor_size, wayland->shm);
   if (wayland->cursor.theme != NULL) {
-    const char *const *cname = (const char *const *)wayland->cursor.name;
-    for (cname = (cname != NULL) ? cname : wayland_cursor_names;
-         (wayland->cursor.cursor == NULL) && (*cname != NULL); ++cname) {
-      wayland->cursor.cursor =
-          wl_cursor_theme_get_cursor(wayland->cursor.theme, *cname);
-    }
+    wayland->cursor.cursor = rofi_cursor_type_to_wl_cursor(
+        wayland->cursor.theme, wayland->cursor.type);
     if (wayland->cursor.cursor == NULL) {
       wl_cursor_theme_destroy(wayland->cursor.theme);
       wayland->cursor.theme = NULL;
@@ -1370,6 +1426,7 @@ static gboolean wayland_display_setup(GMainLoop *main_loop,
                                             wayland_error, NULL, NULL);
 
   wayland->buffer_count = 3;
+  wayland->cursor.type = ROFI_CURSOR_DEFAULT;
   wayland->scale = 1;
 
   wayland->outputs = g_hash_table_new(g_direct_hash, g_direct_equal);

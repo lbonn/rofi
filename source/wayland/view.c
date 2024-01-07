@@ -176,12 +176,6 @@ static void wayland_rofi_view_get_size(RofiViewState *state, gint *width,
   *height = state->height;
 }
 
-static void wayland_rofi_view_set_cursor(RofiCursorType type) {
-  (void)type;
-
-  // TODO
-}
-
 static void wayland_rofi_view_ping_mouse(RofiViewState *state) { (void)state; }
 
 static gboolean wayland_rofi_view_reload_idle(G_GNUC_UNUSED gpointer data) {
@@ -479,7 +473,7 @@ static view_proxy view_ = {
     .calculate_window_height = wayland_rofi_view_calculate_window_height,
     .calculate_window_width = wayland_rofi_view_calculate_window_width,
     .window_update_size = wayland_rofi_view_window_update_size,
-    .set_cursor = wayland_rofi_view_set_cursor,
+    .set_cursor = wayland_display_set_cursor_type,
     .ping_mouse = wayland_rofi_view_ping_mouse,
 
     .cleanup = wayland_rofi_view_cleanup,

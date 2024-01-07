@@ -50,7 +50,7 @@ typedef struct {
   size_t buffer_count;
   struct {
     char *theme_name;
-    char **name;
+    RofiCursorType type;
     struct wl_cursor_theme *theme;
     struct wl_cursor *cursor;
     struct wl_cursor_image *image;
@@ -88,6 +88,7 @@ struct _wayland_seat {
     int32_t delay;
   } repeat;
   uint32_t serial;
+  uint32_t pointer_serial;
   struct wl_keyboard *keyboard;
   struct wl_pointer *pointer;
 
