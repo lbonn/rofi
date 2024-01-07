@@ -44,4 +44,6 @@ gboolean display_get_surface_dimensions(int *width, int *height);
 void display_set_surface_dimensions(int width, int height, int x_margin,
                                     int y_margin, int loc);
 
+void wayland_display_set_cursor_type(RofiCursorType type);
+
 #endif
