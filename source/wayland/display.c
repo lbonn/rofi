@@ -319,6 +319,7 @@ static void wayland_frame_callback(void *data, struct wl_callback *callback,
                                    uint32_t timestamp) {
   if (wayland->frame_cb != NULL) {
     wl_callback_destroy(wayland->frame_cb);
+    wayland->frame_cb = NULL;
     rofi_view_frame_callback();
   }
   if (wayland->surface != NULL) {
@@ -651,6 +652,7 @@ static void wayland_pointer_leave(void *data, struct wl_pointer *pointer,
 
   if (wayland->cursor.frame_cb != NULL) {
     wl_callback_destroy(wayland->cursor.frame_cb);
+    wayland->cursor.frame_cb = NULL;
   }
 }
 
@@ -1225,8 +1227,8 @@ static void wayland_registry_handle_global_remove(void *data,
       ((wayland->compositor == NULL) || (wayland->shm == NULL))) {
     if (wayland->cursor.frame_cb != NULL) {
       wl_callback_destroy(wayland->cursor.frame_cb);
+      wayland->cursor.frame_cb = NULL;
     }
-    wayland->cursor.frame_cb = NULL;
 
     wl_surface_destroy(wayland->cursor.surface);
     wl_cursor_theme_destroy(wayland->cursor.theme);
