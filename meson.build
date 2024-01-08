@@ -293,6 +293,15 @@ if wayland_enabled
         'protocols/wlr-foreign-toplevel-management-unstable-v1.xml',
         'protocols/wlr-layer-shell-unstable-v1.xml',
     )
+
+    if wayland_protocols.version().version_compare('>=1.32')
+        add_project_arguments('-DHAVE_WAYLAND_CURSOR_SHAPE', language: 'c')
+        protocols += files(
+            wayland_sys_protocols_dir + '/staging/cursor-shape/cursor-shape-v1.xml',
+            wayland_sys_protocols_dir + '/unstable/tablet/tablet-unstable-v2.xml',
+        )
+    endif
+
     proto_srcs = []
     proto_headers = []
     foreach p : protocols
