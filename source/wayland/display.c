@@ -60,6 +60,9 @@
 #include "display.h"
 #include "wayland-internal.h"
 
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+#include "cursor-shape-v1-protocol.h"
+#endif
 #include "primary-selection-unstable-v1-protocol.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
 
@@ -650,7 +653,33 @@ rofi_cursor_type_to_wl_cursor(struct wl_cursor_theme *theme,
   return cursor;
 }
 
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+static enum wp_cursor_shape_device_v1_shape
+rofi_cursor_type_to_wp_cursor_shape(RofiCursorType type) {
+  switch (type) {
+  case ROFI_CURSOR_POINTER:
+    return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER;
+  case ROFI_CURSOR_TEXT:
+    return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT;
+  default:
+    return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT;
+  }
+}
+#endif
+
 static void wayland_cursor_update_for_seat(wayland_seat *seat) {
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+  if (seat->cursor_shape_device != NULL) {
+    wp_cursor_shape_device_v1_set_shape(
+        seat->cursor_shape_device, seat->pointer_serial,
+        rofi_cursor_type_to_wp_cursor_shape(wayland->cursor.type));
+    return;
+  } else if (wayland->cursor.theme == NULL) {
+    // cursor-shape-v1 is available, but the seat haven't seen a pointer yet
+    return;
+  }
+#endif
+
   if (wayland->cursor.surface == NULL) {
     wayland->cursor.surface = wl_compositor_create_surface(wayland->compositor);
   }
@@ -674,8 +703,17 @@ static void wayland_pointer_enter(void *data, struct wl_pointer *pointer,
 
   self->pointer_serial = serial;
 
-  if (!wayland_cursor_reload_theme(wayland->scale))
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+  if (wayland->cursor_shape_manager != NULL) {
+    if (self->cursor_shape_device == NULL) {
+      self->cursor_shape_device = wp_cursor_shape_manager_v1_get_pointer(
+          wayland->cursor_shape_manager, pointer);
+    }
+  } else
+#endif
+      if (!wayland_cursor_reload_theme(wayland->scale)) {
     return;
+  }
 
   wayland_cursor_update_for_seat(self);
 }
@@ -690,16 +728,21 @@ void wayland_display_set_cursor_type(RofiCursorType type) {
   }
   wayland->cursor.type = type;
 
-  if (wayland->cursor.theme == NULL) {
-    return;
-  }
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+  if (wayland->cursor_shape_manager == NULL)
+#endif
+  {
+    if (wayland->cursor.theme == NULL) {
+      return;
+    }
 
-  cursor = rofi_cursor_type_to_wl_cursor(wayland->cursor.theme, type);
-  if (cursor == NULL) {
-    g_info("Failed to load cursor type %d", type);
-    return;
+    cursor = rofi_cursor_type_to_wl_cursor(wayland->cursor.theme, type);
+    if (cursor == NULL) {
+      g_info("Failed to load cursor type %d", type);
+      return;
+    }
+    wayland->cursor.cursor = cursor;
   }
-  wayland->cursor.cursor = cursor;
 
   g_hash_table_iter_init(&iter, wayland->seats);
   while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&seat)) {
@@ -1017,6 +1060,13 @@ static void wayland_pointer_release(wayland_seat *self) {
     return;
   }
 
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+  if (self->cursor_shape_device != NULL) {
+    wp_cursor_shape_device_v1_destroy(self->cursor_shape_device);
+    self->cursor_shape_device = NULL;
+  }
+#endif
+
   if (wl_pointer_get_version(self->pointer) >=
       WL_POINTER_RELEASE_SINCE_VERSION) {
     wl_pointer_release(self->pointer);
@@ -1253,6 +1303,13 @@ static void wayland_registry_handle_global(void *data,
     wayland->primary_selection_device_manager = wl_registry_bind(
         registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
   }
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+  else if (strcmp(interface, wp_cursor_shape_manager_v1_interface.name) == 0) {
+    wayland->global_names[WAYLAND_GLOBAL_CURSOR_SHAPE] = name;
+    wayland->cursor_shape_manager = wl_registry_bind(
+        registry, name, &wp_cursor_shape_manager_v1_interface, 1);
+  }
+#endif
 }
 
 static void wayland_registry_handle_global_remove(void *data,
@@ -1269,6 +1326,12 @@ static void wayland_registry_handle_global_remove(void *data,
     case WAYLAND_GLOBAL_COMPOSITOR:
       wl_compositor_destroy(wayland->compositor);
       wayland->compositor = NULL;
+      break;
+    case WAYLAND_GLOBAL_CURSOR_SHAPE:
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+      wp_cursor_shape_manager_v1_destroy(wayland->cursor_shape_manager);
+      wayland->cursor_shape_manager = NULL;
+#endif
       break;
     case WAYLAND_GLOBAL_LAYER_SHELL:
       zwlr_layer_shell_v1_destroy(wayland->layer_shell);

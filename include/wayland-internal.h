@@ -14,6 +14,7 @@ typedef enum {
   WAYLAND_GLOBAL_COMPOSITOR,
   WAYLAND_GLOBAL_SHM,
   WAYLAND_GLOBAL_LAYER_SHELL,
+  WAYLAND_GLOBAL_CURSOR_SHAPE,
   _WAYLAND_GLOBAL_SIZE,
 } wayland_global_name;
 
@@ -39,6 +40,10 @@ typedef struct {
   struct wl_registry *registry;
   uint32_t global_names[_WAYLAND_GLOBAL_SIZE];
   struct wl_compositor *compositor;
+
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+  struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
+#endif
 
   struct wl_data_device_manager *data_device_manager;
   struct zwp_primary_selection_device_manager_v1
@@ -92,6 +97,9 @@ struct _wayland_seat {
   struct wl_keyboard *keyboard;
   struct wl_pointer *pointer;
 
+#ifdef HAVE_WAYLAND_CURSOR_SHAPE
+  struct wp_cursor_shape_device_v1 *cursor_shape_device;
+#endif
   struct wl_data_device *data_device;
   struct zwp_primary_selection_device_v1 *primary_selection_device;
 
