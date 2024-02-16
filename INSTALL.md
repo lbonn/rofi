@@ -271,6 +271,11 @@ https://aur.archlinux.org/packages/rofi-lbonn-wayland-git/
 
 https://packages.fedoraproject.org/pkgs/rofi-wayland/rofi-wayland/
 
+### Gentoo
+`gui-apps/rofi-wayland` exists in the [GURU](https://wiki.gentoo.org/wiki/Project:GURU/Information_for_End_Users) overlay.
+
+https://gitweb.gentoo.org/repo/proj/guru.git/tree/gui-apps/rofi-wayland
+
 ### NixOS
 
 rofi-wayland is integrated in nixpkgs master ([PR](https://github.com/NixOS/nixpkgs/pull/150169))
