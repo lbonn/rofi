@@ -75,6 +75,11 @@ For wayland support:
 
 ## Install from a release
 
+When downloading from the github release page, make sure to grab the archive
+`rofi-{version}.tar.[g|x]z`. The auto-attached files `source code (zip|tar.gz)`
+by github do not contain a valid release. It misses a setup build system and
+includes irrelevant files.
+
 ### Autotools
 
 Create a build directory and enter it:
@@ -272,6 +277,7 @@ https://aur.archlinux.org/packages/rofi-lbonn-wayland-git/
 https://packages.fedoraproject.org/pkgs/rofi-wayland/rofi-wayland/
 
 ### Gentoo
+
 `gui-apps/rofi-wayland` exists in the [GURU](https://wiki.gentoo.org/wiki/Project:GURU/Information_for_End_Users) overlay.
 
 https://gitweb.gentoo.org/repo/proj/guru.git/tree/gui-apps/rofi-wayland

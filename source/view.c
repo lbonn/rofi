@@ -115,6 +115,76 @@ static int lev_sort(const void *p1, const void *p2, void *arg) {
   return distances[*a] - distances[*b];
 }
 
+/**
+ * Stores a screenshot of Rofi at that point in time.
+ */
+void rofi_capture_screenshot(void) {
+  RofiViewState *state = current_active_menu;
+  if (state == NULL || state->main_window == NULL) {
+    g_warning("Nothing to screenshot.");
+    return;
+  }
+  const char *outp = g_getenv("ROFI_PNG_OUTPUT");
+  const char *xdg_pict_dir = g_get_user_special_dir(G_USER_DIRECTORY_PICTURES);
+  if (outp == NULL && xdg_pict_dir == NULL) {
+    g_warning("XDG user picture directory or ROFI_PNG_OUTPUT is not set. "
+              "Cannot store screenshot.");
+    return;
+  }
+  // Get current time.
+  GDateTime *now = g_date_time_new_now_local();
+  // Format filename.
+  char *timestmp = g_date_time_format(now, "rofi-%Y-%m-%d-%H%M");
+  char *filename = g_strdup_printf("%s-%05d.png", timestmp, 0);
+  // Build full path
+  char *fpath = NULL;
+  if (outp == NULL) {
+    int index = 0;
+    fpath = g_build_filename(xdg_pict_dir, filename, NULL);
+    while (g_file_test(fpath, G_FILE_TEST_EXISTS) && index < 99999) {
+      g_free(fpath);
+      g_free(filename);
+      // Try the next index.
+      index++;
+      // Format filename.
+      filename = g_strdup_printf("%s-%05d.png", timestmp, index);
+      // Build full path
+      fpath = g_build_filename(xdg_pict_dir, filename, NULL);
+    }
+  } else {
+    fpath = g_strdup(outp);
+  }
+  fprintf(stderr, color_green "Storing screenshot %s\n" color_reset, fpath);
+  cairo_surface_t *surf = cairo_image_surface_create(
+      CAIRO_FORMAT_ARGB32, state->width, state->height);
+  cairo_status_t status = cairo_surface_status(surf);
+  if (status != CAIRO_STATUS_SUCCESS) {
+    g_warning("Failed to produce screenshot '%s', got error: '%s'", fpath,
+              cairo_status_to_string(status));
+  } else {
+    cairo_t *draw = cairo_create(surf);
+    status = cairo_status(draw);
+    if (status != CAIRO_STATUS_SUCCESS) {
+      g_warning("Failed to produce screenshot '%s', got error: '%s'", fpath,
+                cairo_status_to_string(status));
+    } else {
+      widget_draw(WIDGET(state->main_window), draw);
+      status = cairo_surface_write_to_png(surf, fpath);
+      if (status != CAIRO_STATUS_SUCCESS) {
+        g_warning("Failed to produce screenshot '%s', got error: '%s'", fpath,
+                  cairo_status_to_string(status));
+      }
+    }
+    cairo_destroy(draw);
+  }
+  // Cleanup
+  cairo_surface_destroy(surf);
+  g_free(fpath);
+  g_free(filename);
+  g_free(timestmp);
+  g_date_time_unref(now);
+}
+
 static void rofi_view_update_prompt(RofiViewState *state) {
   if (state->prompt) {
     const char *str = mode_get_display_name(state->sw);
@@ -197,6 +267,13 @@ static void rofi_view_set_user_timeout(G_GNUC_UNUSED gpointer data) {
         int delay = p->value.i;
         CacheState.user_timeout =
             g_timeout_add(delay * 1000, rofi_view_user_timeout, NULL);
+      } else {
+        Property *p = rofi_theme_find_property(wid, P_DOUBLE, "delay", TRUE);
+        if (p != NULL && p->type == P_DOUBLE && p->value.f > 0.01) {
+          double delay = p->value.f;
+          CacheState.user_timeout =
+              g_timeout_add(delay * 1000, rofi_view_user_timeout, NULL);
+        }
       }
     }
   }
@@ -693,6 +770,7 @@ static gboolean rofi_view_refilter_real(RofiViewState *state) {
       states[i].plen = plen;
       states[i].pattern = pattern;
       states[i].st.callback = filter_elements;
+      states[i].st.priority = G_PRIORITY_HIGH;
       if (i > 0) {
         g_thread_pool_push(tpool, &states[i], NULL);
       }
@@ -1233,8 +1311,13 @@ void rofi_view_trigger_action(RofiViewState *state, BindingsScope scope,
   case SCOPE_MOUSE_SCROLLBAR:
   case SCOPE_MOUSE_MODE_SWITCHER: {
     gint x = state->mouse.x, y = state->mouse.y;
-    widget *target = widget_find_mouse_target(WIDGET(state->main_window),
-                                              (WidgetType)scope, x, y);
+    // If we already captured a motion, always forward action to this widget.
+    widget *target = state->mouse.motion_target;
+    // If we have not a previous captured motion, lookup widget.
+    if (target == NULL) {
+      target = widget_find_mouse_target(WIDGET(state->main_window),
+                                        (WidgetType)scope, x, y);
+    }
     if (target == NULL) {
       return;
     }
@@ -1739,6 +1822,15 @@ int rofi_view_error_dialog(const char *msg, int markup) {
   return TRUE;
 }
 
+
+static int rofi_thread_workers_sort(gconstpointer a,gconstpointer b, gpointer data G_GNUC_UNUSED)
+{
+  thread_state *tsa = (thread_state *)a;
+  thread_state *tsb = (thread_state *)b;
+  // lower number is lower priority..  a is sorted above is a > b. 
+  return tsa->priority-tsb->priority;
+}
+
 void rofi_view_workers_initialize(void) {
   TICK_N("Setup Threadpool, start");
   if (config.threads == 0) {
@@ -1764,6 +1856,7 @@ void rofi_view_workers_initialize(void) {
     g_error_free(error);
     exit(EXIT_FAILURE);
   }
+  g_thread_pool_set_sort_function(tpool, rofi_thread_workers_sort, NULL);
   TICK_N("Setup Threadpool, done");
 }
 void rofi_view_workers_finalize(void) {
@@ -1824,7 +1917,7 @@ void rofi_view_switch_mode(RofiViewState *state, Mode *mode) {
   rofi_view_restart(state);
   state->reload = TRUE;
   state->refilter = TRUE;
-  rofi_view_refilter(state);
+  rofi_view_refilter_force(state);
   rofi_view_update(state, TRUE);
 }
 
@@ -1888,8 +1981,6 @@ xcb_window_t rofi_view_get_window(void) { return proxy->get_window(); }
 void rofi_view_get_current_monitor(int *width, int *height) {
   proxy->get_current_monitor(width, height);
 }
-
-void rofi_capture_screenshot(void) { proxy->capture_screenshot(); }
 
 void rofi_view_set_size(RofiViewState *state, gint width, gint height) {
   proxy->set_size(state, width, height);

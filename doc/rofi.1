@@ -601,6 +601,8 @@ The format string for the \fB\fCdrun\fR dialog:
 \fBcategories\fP: the application's categories
 .IP \(bu 2
 \fBcomment\fP: the application comment
+.IP \(bu 2
+\fBurl\fP: The url in case of a link type desktop file
 
 .RE
 
@@ -1371,6 +1373,15 @@ replaced at runtime:
 \fB\fC{window}\fR: the window ID of the selected window (in \fB\fCwindow\-command\fR)
 
 .RE
+
+.PP
+It processes the string as follows: \fB\fC{key}\fR
+is replaced by its value, if \fB\fC{key}\fR is not set it is removed. If the \fB\fC{key}\fR
+is in between \fB\fC[]\fR  all the text between \fB\fC[]\fR is removed if \fB\fC{key}\fR is not set.
+Otherwise key is replaced and the \fB\fC[]\fR are removed.
+
+.PP
+For example: \fB\fC{ssh-client} [-p {port}] {host}\fR
 
 .SH THEMING
 .PP

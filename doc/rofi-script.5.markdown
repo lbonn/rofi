@@ -118,6 +118,10 @@ The following extra options exists:
 -   **theme**:       Small theme snippet to f.e. change the background color of
     a widget.
 
+The **theme** property cannot change the interface while running, it is only
+usable for small changes in, for example background color, of widgets that get
+updated during display like the row color of the listview.
+
 ## Parsing row options
 
 Extra options for individual rows can be set. The extra option can be specified
@@ -133,12 +137,14 @@ The following options are supported:
 
 -   **icon**: Set the icon for that row.
 
--   **meta**: Specify invisible search terms.
+-   **display**: Replace the displayed string. (Original string will still be used for filtering)
+
+-   **meta**: Specify invisible search terms used for filtering.
 
 -   **nonselectable**: If true the row cannot activated.
 
 -   **info**: Info that, on selection, gets placed in the `ROFI_INFO`
-    environment variable. This entry does not get searched.
+    environment variable. This entry does not get searched for filtering.
 
 -   **urgent**: Set urgent flag on entry (true/false)
 

@@ -381,6 +381,7 @@ The format string for the `drun` dialog:
 - **exec**: the application's  executable
 - **categories**: the application's categories
 - **comment**: the application comment
+- **url**: The url in case of a link type desktop file
 
 Pango markup can be used to formatting the output.
 
@@ -885,6 +886,13 @@ replaced at runtime:
 - `{ssh-client}`: the configured ssh client (see -ssh-client)
 - `{cmd}`: the command to execute
 - `{window}`: the window ID of the selected window (in `window-command`)
+
+It processes the string as follows: `{key}`
+is replaced by its value, if `{key}` is not set it is removed. If the `{key}`
+is in between `[]`  all the text between `[]` is removed if `{key}` is not set.
+Otherwise key is replaced and the `[]` are removed.
+
+For example: `{ssh-client} [-p {port}] {host}`
 
 ## THEMING
 

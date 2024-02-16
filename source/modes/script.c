@@ -93,6 +93,8 @@ void dmenuscript_parse_entry_extras(G_GNUC_UNUSED Mode *sw,
     *(extra + 1) = NULL;
     if (strcasecmp(key, "icon") == 0) {
       entry->icon_name = value;
+    } else if (strcasecmp(key, "display") == 0) {
+      entry->display = value;
     } else if (strcasecmp(key, "meta") == 0) {
       entry->meta = value;
     } else if (strcasecmp(key, "info") == 0) {
@@ -243,6 +245,7 @@ static DmenuScriptEntry *execute_executor(Mode *sw, char *arg,
             retv[(*length)].entry = g_memdup(buffer, buf_length);
 #endif
             retv[(*length)].icon_name = NULL;
+            retv[(*length)].display = NULL;
             retv[(*length)].meta = NULL;
             retv[(*length)].info = NULL;
             retv[(*length)].active = FALSE;
@@ -357,6 +360,7 @@ static ModeMode script_mode_result(Mode *sw, int mretv, char **input,
     for (unsigned int i = 0; i < rmpd->cmd_list_length; i++) {
       g_free(rmpd->cmd_list[i].entry);
       g_free(rmpd->cmd_list[i].icon_name);
+      g_free(rmpd->cmd_list[i].display);
       g_free(rmpd->cmd_list[i].meta);
       g_free(rmpd->cmd_list[i].info);
     }
@@ -388,6 +392,7 @@ static void script_mode_destroy(Mode *sw) {
     for (unsigned int i = 0; i < rmpd->cmd_list_length; i++) {
       g_free(rmpd->cmd_list[i].entry);
       g_free(rmpd->cmd_list[i].icon_name);
+      g_free(rmpd->cmd_list[i].display);
       g_free(rmpd->cmd_list[i].meta);
     }
     g_free(rmpd->cmd_list);
@@ -439,7 +444,11 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
   if (pd->do_markup) {
     *state |= MARKUP;
   }
-  return get_entry ? g_strdup(pd->cmd_list[selected_line].entry) : NULL;
+  if (pd->cmd_list[selected_line].display) {
+    return get_entry ? g_strdup(pd->cmd_list[selected_line].display) : NULL;
+  } else {
+    return get_entry ? g_strdup(pd->cmd_list[selected_line].entry) : NULL;
+  }
 }
 
 static int script_token_match(const Mode *sw, rofi_int_matcher **tokens,
