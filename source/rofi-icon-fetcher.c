@@ -367,7 +367,7 @@ static void rofi_icon_fetcher_worker(thread_state *sdata,
       gdk_pixbuf_new_from_file_at_scale(icon_path, width, height, TRUE, &error);
   if (error != NULL) {
     g_warning("Failed to load image: |%s| %d %d %s (%p)", icon_path,
-              sentry->wsize, sentry->hsize, error->message, pb);
+              sentry->wsize, sentry->hsize, error->message, (void*)pb);
     g_error_free(error);
     if (pb) {
       g_object_unref(pb);
