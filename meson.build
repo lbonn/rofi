@@ -285,7 +285,8 @@ theme_lexer = flex.process(theme_lexer_sources)
 theme_parser = bison.process(theme_parser_sources)
 
 if wayland_enabled
-    wayland_sys_protocols_dir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
+    fs = import('fs')
+    wayland_sys_protocols_dir = wayland_protocols.get_variable(pkgconfig: 'pkgdatadir')
     wayland_scanner = find_program('wayland-scanner')
     protocols = files(
         wayland_sys_protocols_dir + '/stable/xdg-shell/xdg-shell.xml',
@@ -307,13 +308,13 @@ if wayland_enabled
     proto_headers = []
     foreach p : protocols
         proto_srcs += custom_target(
-            '@0@'.format(p).underscorify() + '_protocol_c',
+            fs.stem(p).underscorify() + '_protocol_c',
             input: p,
             output: '@BASENAME@-protocol.c',
             command: [wayland_scanner, 'public-code', '@INPUT@', '@OUTPUT@'],
         )
         proto_headers += custom_target(
-            '@0@'.format(p).underscorify() + '_protocol_h',
+            fs.stem(p).underscorify() + '_protocol_h',
             input: p,
             output: '@BASENAME@-protocol.h',
             command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@'],
