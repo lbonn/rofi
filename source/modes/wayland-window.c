@@ -412,6 +412,7 @@ static ModeMode wayland_window_mode_result(Mode *sw, int mretv,
   } else if (mretv & MENU_QUICK_SWITCH) {
     retv = (ModeMode)(mretv & MENU_LOWER_MASK);
   } else if ((mretv & MENU_OK)) {
+    rofi_view_hide();
     ForeignToplevelHandle *toplevel =
         (ForeignToplevelHandle *)g_list_nth_data(pd->toplevels, selected_line);
     foreign_toplevel_handle_activate(toplevel, pd->wayland->last_seat->seat);
