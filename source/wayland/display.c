@@ -1402,14 +1402,23 @@ static void wayland_layer_shell_surface_configure(
   zwlr_layer_surface_v1_ack_configure(surface, serial);
 }
 
+static void wayland_surface_destroy(void) {
+  if (wayland->wlr_surface != NULL) {
+    zwlr_layer_surface_v1_destroy(wayland->wlr_surface);
+    wayland->wlr_surface = NULL;
+  }
+  if (wayland->surface != NULL) {
+    wl_surface_destroy(wayland->surface);
+    wayland->surface = NULL;
+  }
+}
+
 static void
 wayland_layer_shell_surface_closed(void *data,
                                    struct zwlr_layer_surface_v1 *surface) {
   g_debug("Layer shell surface closed");
 
-  zwlr_layer_surface_v1_destroy(surface);
-  wl_surface_destroy(wayland->surface);
-  wayland->surface = NULL;
+  wayland_surface_destroy();
 
   // In this case, we recreate the layer shell surface the best we can and
   // re-initialize everything:
@@ -1626,15 +1635,18 @@ void display_set_surface_dimensions(int width, int height, int x_margin,
                                    -y_margin, x_margin);
 }
 
-static void wayland_display_early_cleanup(void) {}
-
-static void wayland_display_cleanup(void) {
+static void wayland_display_early_cleanup(void) {
   if (wayland->main_loop_source == NULL) {
     return;
   }
 
-  if (wayland->surface != NULL) {
-    wl_surface_destroy(wayland->surface);
+  wayland_surface_destroy();
+  wl_display_flush(wayland->display);
+}
+
+static void wayland_display_cleanup(void) {
+  if (wayland->main_loop_source == NULL) {
+    return;
   }
 
   nk_bindings_seat_free(wayland->bindings_seat);

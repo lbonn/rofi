@@ -423,7 +423,7 @@ static int wayland_rofi_view_calculate_window_height(RofiViewState *state) {
   return widget_get_desired_height(main_window, state->width);
 }
 
-static void wayland_rofi_view_hide(void) {}
+static void wayland_rofi_view_hide(void) { display_early_cleanup(); }
 
 static void wayland_rofi_view_cleanup() {
   g_debug("Cleanup.");
