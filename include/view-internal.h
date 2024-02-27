@@ -27,9 +27,11 @@
 
 #ifndef ROFI_VIEW_INTERNAL_H
 #define ROFI_VIEW_INTERNAL_H
+#include "display.h"
 #include "keyb.h"
 #include "mode.h"
 #include "theme.h"
+#include "view.h"
 #include "widgets/box.h"
 #include "widgets/container.h"
 #include "widgets/icon.h"
@@ -161,22 +163,22 @@ struct RofiViewState {
 /** @} */
 
 typedef struct _view_proxy {
-  void (*update)(RofiViewState *state, gboolean qr);
-  void (*maybe_update)(RofiViewState *state);
-  void (*temp_configure_notify)(RofiViewState *state,
+  void (*update)(struct RofiViewState *state, gboolean qr);
+  void (*maybe_update)(struct RofiViewState *state);
+  void (*temp_configure_notify)(struct RofiViewState *state,
                                 xcb_configure_notify_event_t *xce);
-  void (*temp_click_to_exit)(RofiViewState *state, xcb_window_t target);
+  void (*temp_click_to_exit)(struct RofiViewState *state, xcb_window_t target);
   void (*frame_callback)(void);
 
   void (*queue_redraw)(void);
 
   void (*set_window_title)(const char *title);
-  void (*calculate_window_position)(RofiViewState *state);
-  void (*calculate_window_width)(RofiViewState *state);
-  int (*calculate_window_height)(RofiViewState *state);
-  void (*window_update_size)(RofiViewState *state);
+  void (*calculate_window_position)(struct RofiViewState *state);
+  void (*calculate_window_width)(struct RofiViewState *state);
+  int (*calculate_window_height)(struct RofiViewState *state);
+  void (*window_update_size)(struct RofiViewState *state);
   void (*set_cursor)(RofiCursorType type);
-  void (*ping_mouse)(RofiViewState *state);
+  void (*ping_mouse)(struct RofiViewState *state);
 
   void (*cleanup)(void);
   void (*hide)(void);
@@ -187,8 +189,8 @@ typedef struct _view_proxy {
   void (*get_current_monitor)(int *width, int *height);
   void (*capture_screenshot)(void);
 
-  void (*set_size)(RofiViewState *state, gint width, gint height);
-  void (*get_size)(RofiViewState *state, gint *width, gint *height);
+  void (*set_size)(struct RofiViewState *state, gint width, gint height);
+  void (*get_size)(struct RofiViewState *state, gint *width, gint *height);
 
   void (*pool_refresh)(void);
 } view_proxy;
