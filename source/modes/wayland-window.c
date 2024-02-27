@@ -496,7 +496,9 @@ static void helper_eval_add_str(GString *str, const char *input, int len,
       g_free(tmp);
     }
   } else {
-    g_string_append(str, input_nn);
+    char *tmp = g_markup_escape_text(input_nn, -1);
+    g_string_append(str, tmp);
+    g_free(tmp);
     if (len == 0) {
       spaces = MAX(0, max_len - nc);
     }
