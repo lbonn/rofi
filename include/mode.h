@@ -129,6 +129,8 @@ unsigned int mode_get_num_entries(const Mode *mode);
 char *mode_get_display_value(const Mode *mode, unsigned int selected_line,
                              int *state, GList **attribute_list, int get_entry);
 
+int mode_selection_changed(const Mode *mode, unsigned int selected_line);
+
 /**
  * @param mode The mode to query
  * @param selected_line The entry to query

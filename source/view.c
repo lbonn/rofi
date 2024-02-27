@@ -623,6 +623,22 @@ inline static void rofi_view_nav_last(RofiViewState *state) {
 static void selection_changed_callback(G_GNUC_UNUSED listview *lv,
                                        unsigned int index, void *udata) {
   RofiViewState *state = (RofiViewState *)udata;
+
+  g_debug("selection changed %u", index);
+
+  uint32_t translated;
+  if (index == UINT32_MAX) {
+    translated = index;
+  } else {
+    translated = state->line_map[index];
+  }
+
+  if (state->acked_line != translated) {
+    if (mode_selection_changed(state->sw, translated)) {
+      state->acked_line = translated;
+    }
+  }
+
   if (state->tb_current_entry) {
     if (index < state->filtered_lines) {
       int fstate = 0;
@@ -1689,6 +1705,7 @@ RofiViewState *rofi_view_create(Mode *sw, const char *input,
   state->menu_flags = menu_flags;
   state->sw = sw;
   state->selected_line = UINT32_MAX;
+  state->acked_line = UINT32_MAX;
   state->retv = MENU_CANCEL;
   state->distance = NULL;
   state->quit = FALSE;

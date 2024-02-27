@@ -84,6 +84,16 @@ char *mode_get_display_value(const Mode *mode, unsigned int selected_line,
                                   get_entry);
 }
 
+int mode_selection_changed(const Mode *mode, unsigned int selected_line) {
+  g_assert(mode != NULL);
+
+  if (mode->_selection_changed) {
+    return mode->_selection_changed(mode, selected_line);
+  }
+
+  return 1;
+}
+
 cairo_surface_t *mode_get_icon(Mode *mode, unsigned int selected_line,
                                unsigned int height) {
   g_assert(mode != NULL);

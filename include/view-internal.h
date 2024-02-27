@@ -101,6 +101,8 @@ struct RofiViewState {
   int skip_absorb;
   /** The selected line (in the unfiltered list) */
   unsigned int selected_line;
+  /** Line acknowledged by current mode */
+  unsigned int acked_line;
   /** The return state of the view */
   MenuReturn retv;
   /** Monitor #workarea the view is displayed on */

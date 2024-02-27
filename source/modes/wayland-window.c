@@ -58,11 +58,16 @@ enum WaylandWindowMatchingFields {
   WW_MATCH_FIELD_ALL = ~0,
 };
 
+struct ForeignToplevelHandle;
+
 typedef struct _WaylandWindowModePrivateData {
   wayland_stuff *wayland;
   struct wl_registry *registry;
   struct zwlr_foreign_toplevel_manager_v1 *manager;
   GList *toplevels; /* List of ForeignToplevelHandle */
+
+  struct ForeignToplevelHandle *original_focus;
+  struct ForeignToplevelHandle *current_focus;
 
   /* initial rendering complete, updates allowed */
   gboolean visible;
@@ -84,7 +89,7 @@ enum ForeignToplevelState {
   TOPLEVEL_STATE_CLOSED = 1 << 4
 };
 
-typedef struct {
+typedef struct ForeignToplevelHandle {
   struct zwlr_foreign_toplevel_handle_v1 *handle;
   WaylandWindowModePrivateData *view;
 
@@ -187,17 +192,26 @@ static void foreign_toplevel_handle_state(
     void *data, G_GNUC_UNUSED struct zwlr_foreign_toplevel_handle_v1 *handle,
     struct wl_array *value) {
   ForeignToplevelHandle *self = (ForeignToplevelHandle *)data;
+  WaylandWindowModePrivateData *pd = self->view;
   uint32_t *elem;
 
   self->state = 0;
-  wl_array_for_each(elem, value) { self->state |= 1 << *elem; }
+  wl_array_for_each(elem, value) {
+    if (*elem == 2) {  // activated
+      if (!pd->original_focus) {
+        pd->original_focus = self;
+      }
+      pd->current_focus = self;
+    }
+    self->state |= 1 << *elem;
+  }
 }
 
 static void foreign_toplevel_handle_done(
     void *data, G_GNUC_UNUSED struct zwlr_foreign_toplevel_handle_v1 *handle) {
   ForeignToplevelHandle *self = (ForeignToplevelHandle *)data;
 
-  g_debug("window %p id=%s title=%s state=%d\n", (void *)self, self->app_id,
+  g_debug("window %p id=%s title=%s state=%d", (void *)self, self->app_id,
           self->title, self->state);
 
   wayland_window_update_toplevel(self);
@@ -206,10 +220,17 @@ static void foreign_toplevel_handle_done(
 static void foreign_toplevel_handle_closed(
     void *data, G_GNUC_UNUSED struct zwlr_foreign_toplevel_handle_v1 *handle) {
   ForeignToplevelHandle *self = (ForeignToplevelHandle *)data;
+  WaylandWindowModePrivateData *pd = self->view;
 
   /* the handle is inert and will receive no further events */
   self->state = TOPLEVEL_STATE_CLOSED;
   self->view->toplevels = g_list_remove(self->view->toplevels, self);
+  if (pd->current_focus == self) {
+    pd->current_focus = NULL;
+  }
+  if (pd->original_focus == self) {
+    pd->original_focus = NULL;
+  }
   wayland_window_update_toplevel(self);
   foreign_toplevel_handle_free(self);
 }
@@ -405,6 +426,8 @@ static ModeMode wayland_window_mode_result(Mode *sw, int mretv,
 
   g_return_val_if_fail(pd != NULL, retv);
 
+  g_debug("mretv %d\n", mretv);
+
   if (mretv & MENU_NEXT) {
     retv = NEXT_DIALOG;
   } else if (mretv & MENU_PREVIOUS) {
@@ -414,8 +437,13 @@ static ModeMode wayland_window_mode_result(Mode *sw, int mretv,
   } else if ((mretv & MENU_OK)) {
     rofi_view_hide();
     ForeignToplevelHandle *toplevel =
-        (ForeignToplevelHandle *)g_list_nth_data(pd->toplevels, selected_line);
-    foreign_toplevel_handle_activate(toplevel, pd->wayland->last_seat->seat);
+      (ForeignToplevelHandle *)g_list_nth_data(pd->toplevels, selected_line);
+    if (config.window_preview_focus) {
+      // will be done in destroy...
+      pd->original_focus = toplevel;
+    } else {
+      foreign_toplevel_handle_activate(toplevel, pd->wayland->last_seat->seat);
+    }
     wl_display_flush(pd->wayland->display);
 
   } else if ((mretv & MENU_ENTRY_DELETE) == MENU_ENTRY_DELETE) {
@@ -434,6 +462,10 @@ static void wayland_window_mode_destroy(Mode *sw) {
 
   if (pd == NULL) {
     return;
+  }
+
+  if (config.window_preview_focus && pd->original_focus != NULL) {
+    foreign_toplevel_handle_activate(pd->original_focus, pd->wayland->last_seat->seat);
   }
 
   wayland_window_private_free(pd);
@@ -577,6 +609,46 @@ static char *_get_display_value(const Mode *sw, unsigned int selected_line,
   return get_entry ? _generate_display_string(pd, toplevel) : NULL;
 }
 
+static gboolean _selection_changed(const Mode *sw, unsigned int selected_line) {
+  if (!config.window_preview_focus) {
+    return TRUE;
+  }
+
+  WaylandWindowModePrivateData *pd =
+      (WaylandWindowModePrivateData *)mode_get_private_data(sw);
+  g_debug("Selection changed, select window %u", selected_line);
+
+  if (selected_line >= g_list_length(pd->toplevels)) {
+    if (pd->original_focus != NULL && pd->wayland->last_seat != NULL) {
+      foreign_toplevel_handle_activate(pd->original_focus, pd->wayland->last_seat->seat);
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  ForeignToplevelHandle *toplevel =
+    (ForeignToplevelHandle *)g_list_nth_data(pd->toplevels, selected_line);
+
+  if (toplevel == NULL || toplevel->app_id == NULL ||
+      toplevel->app_id[0] == '\0') {
+    return FALSE;
+  }
+
+  if (toplevel == pd->current_focus)  {
+    g_debug("skip activate");
+    return FALSE;
+  }
+
+
+  if (pd->wayland->last_seat != NULL) {
+    g_debug("activate");
+    foreign_toplevel_handle_activate(toplevel, pd->wayland->last_seat->seat);
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
 static cairo_surface_t *_get_icon(const Mode *sw, unsigned int selected_line,
                                   unsigned int height) {
   WaylandWindowModePrivateData *pd =
@@ -624,6 +696,7 @@ Mode wayland_window_mode = {.name = "window",
                             ._result = wayland_window_mode_result,
                             ._token_match = wayland_window_token_match,
                             ._get_display_value = _get_display_value,
+                            ._selection_changed = _selection_changed,
                             ._get_icon = _get_icon,
                             ._get_completion = NULL,
                             ._preprocess_input = NULL,

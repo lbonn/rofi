@@ -176,6 +176,9 @@ typedef struct {
   /** Window Thumbnails */
   gboolean window_thumbnail;
 
+  /** Focus windows when selected */
+  gboolean window_preview_focus;
+
   /** drun cache */
   gboolean drun_use_desktop_cache;
   gboolean drun_reload_desktop_cache;

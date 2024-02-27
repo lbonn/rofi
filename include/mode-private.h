@@ -72,6 +72,9 @@ typedef char *(*_mode_get_display_value)(const Mode *sw,
                                          unsigned int selected_line, int *state,
                                          GList **attribute_list, int get_entry);
 
+typedef gboolean (*_mode_selection_changed)(const Mode *sw,
+                                            unsigned int selected_line);
+
 /**
  * @param sw The #Mode pointer
  * @param selected_line The selected line
@@ -217,6 +220,8 @@ struct rofi_mode {
   _mode_token_match _token_match;
   /** Get the string to display for the entry. */
   _mode_get_display_value _get_display_value;
+  /** Hook when selection is changed */
+  _mode_selection_changed _selection_changed;
   /** Get the icon for the entry. */
   _mode_get_icon _get_icon;
   /** Get the 'completed' entry. */
