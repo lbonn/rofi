@@ -163,7 +163,7 @@ winlist *cache_client = NULL;
  *
  * @returns A new window list.
  */
-static winlist *winlist_new() {
+static winlist *winlist_new(void) {
   winlist *l = g_malloc(sizeof(winlist));
   l->len = 0;
   l->array = g_malloc_n(WINLIST + 1, sizeof(xcb_window_t));
@@ -472,7 +472,7 @@ static int window_match(const Mode *sw, rofi_int_matcher **tokens,
   return match;
 }
 
-static void window_mode_parse_fields() {
+static void window_mode_parse_fields(void) {
   window_matching_fields_parsed = TRUE;
   char *savept = NULL;
   // Make a copy, as strtok will modify it.

@@ -29,7 +29,6 @@
 #define G_LOG_DOMAIN "View"
 
 #include <config.h>
-#include <errno.h>
 #include <locale.h>
 #include <signal.h>
 #include <stdint.h>
@@ -50,7 +49,6 @@
 #include "helper-theme.h"
 #include "helper.h"
 #include "mode.h"
-#include "xrmoptions.h"
 
 #include "view-internal.h"
 #include "view.h"
@@ -1822,13 +1820,12 @@ int rofi_view_error_dialog(const char *msg, int markup) {
   return TRUE;
 }
 
-
-static int rofi_thread_workers_sort(gconstpointer a,gconstpointer b, gpointer data G_GNUC_UNUSED)
-{
+static int rofi_thread_workers_sort(gconstpointer a, gconstpointer b,
+                                    gpointer data G_GNUC_UNUSED) {
   thread_state *tsa = (thread_state *)a;
   thread_state *tsb = (thread_state *)b;
-  // lower number is lower priority..  a is sorted above is a > b. 
-  return tsa->priority-tsb->priority;
+  // lower number is lower priority..  a is sorted above is a > b.
+  return tsa->priority - tsb->priority;
 }
 
 void rofi_view_workers_initialize(void) {
