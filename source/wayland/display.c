@@ -65,6 +65,7 @@
 #endif
 #include "primary-selection-unstable-v1-protocol.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
+#include "keyboard-shortcuts-inhibit-unstable-v1-protocol.h"
 
 #define wayland_output_get_dpi(output, scale, dimension)                       \
   ((output)->current.physical_##dimension > 0 && (scale) > 0                   \
@@ -1257,6 +1258,8 @@ static void wayland_registry_handle_global(void *data,
                                            struct wl_registry *registry,
                                            uint32_t name, const char *interface,
                                            uint32_t version) {
+  g_debug("wayland registry: interface %s", interface);
+
   if (g_strcmp0(interface, wl_compositor_interface.name) == 0) {
     wayland->global_names[WAYLAND_GLOBAL_COMPOSITOR] = name;
     wayland->compositor =
@@ -1267,6 +1270,11 @@ static void wayland_registry_handle_global(void *data,
     wayland->layer_shell =
         wl_registry_bind(registry, name, &zwlr_layer_shell_v1_interface,
                          MIN(version, WL_LAYER_SHELL_INTERFACE_VERSION));
+  } else if (g_strcmp0(interface, zwp_keyboard_shortcuts_inhibit_manager_v1_interface.name) == 0) {
+    wayland->global_names[WAYLAND_GLOBAL_KEYBOARD_SHORTCUTS_INHIBITOR] = name;
+    wayland->kb_shortcuts_inhibit_manager =
+        wl_registry_bind(registry, name, &zwp_keyboard_shortcuts_inhibit_manager_v1_interface,
+                         MIN(version, WL_KEYBOARD_SHORTCUTS_INHIBITOR_INTERFACE_VERSION));
   } else if (g_strcmp0(interface, wl_shm_interface.name) == 0) {
     wayland->global_names[WAYLAND_GLOBAL_SHM] = name;
     wayland->shm = wl_registry_bind(registry, name, &wl_shm_interface,
@@ -1336,6 +1344,10 @@ static void wayland_registry_handle_global_remove(void *data,
     case WAYLAND_GLOBAL_LAYER_SHELL:
       zwlr_layer_shell_v1_destroy(wayland->layer_shell);
       wayland->layer_shell = NULL;
+      break;
+    case WAYLAND_GLOBAL_KEYBOARD_SHORTCUTS_INHIBITOR:
+      zwp_keyboard_shortcuts_inhibit_manager_v1_destroy(wayland->kb_shortcuts_inhibit_manager);
+      wayland->kb_shortcuts_inhibit_manager = NULL;
       break;
     case WAYLAND_GLOBAL_SHM:
       wl_shm_destroy(wayland->shm);
@@ -1551,6 +1563,19 @@ static gboolean wayland_display_late_setup(void) {
   zwlr_layer_surface_v1_set_keyboard_interactivity(wayland->wlr_surface, 1);
   zwlr_layer_surface_v1_add_listener(
       wayland->wlr_surface, &wayland_layer_shell_surface_listener, NULL);
+
+  if (wayland->kb_shortcuts_inhibit_manager) {
+    g_debug("inhibit shortcuts from compositor");
+    GHashTableIter iter;
+    wayland_seat *seat;
+    g_hash_table_iter_init(&iter, wayland->seats);
+    while (g_hash_table_iter_next(&iter, NULL, (gpointer *)&seat)) {
+      // we don't need to keep track of these, they will get inactive when the
+      // surface is destroyed
+      zwp_keyboard_shortcuts_inhibit_manager_v1_inhibit_shortcuts(wayland->kb_shortcuts_inhibit_manager,
+                                                                  wayland->surface, seat->seat);
+    }
+  }
 
   wl_surface_add_listener(wayland->surface, &wayland_surface_interface,
                           wayland);

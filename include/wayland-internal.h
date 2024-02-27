@@ -14,6 +14,7 @@ typedef enum {
   WAYLAND_GLOBAL_COMPOSITOR,
   WAYLAND_GLOBAL_SHM,
   WAYLAND_GLOBAL_LAYER_SHELL,
+  WAYLAND_GLOBAL_KEYBOARD_SHORTCUTS_INHIBITOR,
   WAYLAND_GLOBAL_CURSOR_SHAPE,
   _WAYLAND_GLOBAL_SIZE,
 } wayland_global_name;
@@ -50,6 +51,8 @@ typedef struct {
       *primary_selection_device_manager;
 
   struct zwlr_layer_shell_v1 *layer_shell;
+
+  struct zwp_keyboard_shortcuts_inhibit_manager_v1 *kb_shortcuts_inhibit_manager;
 
   struct wl_shm *shm;
   size_t buffer_count;
@@ -116,6 +119,7 @@ struct _wayland_seat {
 #define WL_SHM_INTERFACE_VERSION 1
 #define WL_SEAT_INTERFACE_VERSION 5
 #define WL_LAYER_SHELL_INTERFACE_VERSION 1
+#define WL_KEYBOARD_SHORTCUTS_INHIBITOR_INTERFACE_VERSION 1
 #define WL_OUTPUT_INTERFACE_MIN_VERSION 2
 
 #ifdef WL_OUTPUT_NAME_SINCE_VERSION
