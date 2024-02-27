@@ -957,7 +957,7 @@ static void xcb_rofi_view_hide(void) {
   }
 }
 
-static void xcb_rofi_view_cleanup() {
+static void xcb_rofi_view_cleanup(void) {
   // Clear clipboard data.
   xcb_stuff_set_clipboard(NULL);
   g_debug("Cleanup.");

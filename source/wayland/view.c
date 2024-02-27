@@ -425,7 +425,7 @@ static int wayland_rofi_view_calculate_window_height(RofiViewState *state) {
 
 static void wayland_rofi_view_hide(void) { display_early_cleanup(); }
 
-static void wayland_rofi_view_cleanup() {
+static void wayland_rofi_view_cleanup(void) {
   g_debug("Cleanup.");
   if (WlState.idle_timeout > 0) {
     g_source_remove(WlState.idle_timeout);

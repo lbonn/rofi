@@ -49,7 +49,7 @@ typedef struct _display_proxy {
   void (*set_input_focus)(guint window);
   void (*revert_input_focus)(void);
   char *(*get_clipboard_data)(int type);
-  void (*set_fullscreen_mode)();
+  void (*set_fullscreen_mode)(void);
 
   guint (*scale)(void);
 

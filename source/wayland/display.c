@@ -1724,7 +1724,7 @@ static char *wayland_get_clipboard_data(int type) {
   return NULL;
 }
 
-static void wayland_set_fullscreen_mode() {
+static void wayland_set_fullscreen_mode(void) {
   if (!wayland->wlr_surface) {
     return;
   }

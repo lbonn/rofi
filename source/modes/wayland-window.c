@@ -286,7 +286,7 @@ static void handle_global_remove(G_GNUC_UNUSED void *data,
 static struct wl_registry_listener registry_listener = {
     .global = &handle_global, .global_remove = &handle_global_remove};
 
-static int wayland_window_mode_parse_fields() {
+static int wayland_window_mode_parse_fields(void) {
   int result = 0;
   char *savept = NULL;
   // Make a copy, as strtok will modify it.
