@@ -155,6 +155,9 @@ typedef struct {
   /** Click outside the window to exit */
   int click_to_exit;
 
+  /** Try to take over compositor's global bindings (on Wayland) */
+  gboolean global_kbindings;
+
   char *theme;
   /** Path where plugins can be found. */
   char *plugin_path;

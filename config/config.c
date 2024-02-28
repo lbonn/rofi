@@ -130,6 +130,7 @@ Settings config = {
     .scroll_method = 0,
     .window_format = "{w}    {c}   {t}",
     .click_to_exit = TRUE,
+    .global_kbindings = FALSE,
     .theme = NULL,
     .plugin_path = PLUGIN_PATH,
     .max_history_size = 25,
