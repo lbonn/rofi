@@ -1564,7 +1564,7 @@ static gboolean wayland_display_late_setup(void) {
   zwlr_layer_surface_v1_add_listener(
       wayland->wlr_surface, &wayland_layer_shell_surface_listener, NULL);
 
-  if (config.global_kbindings && wayland->kb_shortcuts_inhibit_manager) {
+  if (config.global_kb && wayland->kb_shortcuts_inhibit_manager) {
     g_debug("inhibit shortcuts from compositor");
     GHashTableIter iter;
     wayland_seat *seat;

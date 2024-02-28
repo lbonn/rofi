@@ -768,8 +768,8 @@ Click the mouse outside the **rofi** window to exit.
 
 Default: *enabled*
 
-`-global-kbindings`
-`-no-global-kbindings`
+`-global-kb`
+`-no-global-kb`
 
 (wayland) Override the compositor's keybindings, so that **rofi** can re-use them.
 
