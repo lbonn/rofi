@@ -19,7 +19,7 @@ int monitor_active(workarea *mon) { return proxy->monitor_active(mon); }
 
 void display_set_input_focus(guint w) { proxy->set_input_focus(w); }
 
-void display_revert_input_focus() { proxy->revert_input_focus(); }
+void display_revert_input_focus(void) { proxy->revert_input_focus(); }
 
 gboolean display_setup(GMainLoop *main_loop, NkBindings *bindings) {
   return proxy->setup(main_loop, bindings);
