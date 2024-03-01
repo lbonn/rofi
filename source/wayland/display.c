@@ -609,18 +609,28 @@ static void wayland_pointer_send_events(wayland_seat *self) {
     self->button.button = 0;
   }
 
-  if (self->wheel.vertical != 0) {
+  if (abs(self->wheel.vertical) >= 120) {
+    gint v120 = self->wheel.vertical;
     nk_bindings_seat_handle_scroll(wayland->bindings_seat, NULL,
                                    NK_BINDINGS_SCROLL_AXIS_VERTICAL,
-                                   self->wheel.vertical);
-    self->wheel.vertical = 0;
+                                   v120 / 120);
+    if (v120 > 0) {
+      self->wheel.vertical = v120 % 120;
+    } else {
+      self->wheel.vertical = -((-v120) % 120);
+    }
   }
 
-  if (self->wheel.horizontal != 0) {
+  if (abs(self->wheel.horizontal) >= 120) {
+    gint v120 = self->wheel.horizontal;
     nk_bindings_seat_handle_scroll(wayland->bindings_seat, NULL,
                                    NK_BINDINGS_SCROLL_AXIS_HORIZONTAL,
-                                   self->wheel.horizontal);
-    self->wheel.horizontal = 0;
+                                   v120 / 120);
+    if (v120 > 0) {
+      self->wheel.horizontal = v120 % 120;
+    } else {
+      self->wheel.horizontal = -((-v120) % 120);
+    }
   }
 
   rofi_view_maybe_update(state);
@@ -772,12 +782,6 @@ static void wayland_pointer_motion(void *data, struct wl_pointer *pointer,
   self->motion.x = wl_fixed_to_int(x);
   self->motion.y = wl_fixed_to_int(y);
   self->motion.time = time;
-
-  if (wl_pointer_get_version(self->pointer) >= WL_POINTER_FRAME_SINCE_VERSION) {
-    return;
-  }
-
-  wayland_pointer_send_events(self);
 }
 
 static void wayland_pointer_button(void *data, struct wl_pointer *pointer,
@@ -792,26 +796,11 @@ static void wayland_pointer_button(void *data, struct wl_pointer *pointer,
   self->button.time = time;
   self->button.pressed = (state == WL_POINTER_BUTTON_STATE_PRESSED);
   self->button.button = button;
-
-  wayland_pointer_send_events(self);
 }
 
 static void wayland_pointer_axis(void *data, struct wl_pointer *pointer,
                                  uint32_t time, enum wl_pointer_axis axis,
-                                 wl_fixed_t value) {
-  wayland_seat *self = data;
-
-  switch (axis) {
-  case WL_POINTER_AXIS_VERTICAL_SCROLL:
-    self->wheel.vertical += (gint)(wl_fixed_to_double(value) / 10.);
-    break;
-  case WL_POINTER_AXIS_HORIZONTAL_SCROLL:
-    self->wheel.horizontal += (gint)(wl_fixed_to_double(value) / 10.);
-    break;
-  }
-
-  wayland_pointer_send_events(self);
-}
+                                 wl_fixed_t value) {}
 
 static void wayland_pointer_frame(void *data, struct wl_pointer *pointer) {
   wayland_seat *self = data;
@@ -832,15 +821,36 @@ static void wayland_pointer_axis_discrete(void *data,
                                           int32_t discrete) {
   wayland_seat *self = data;
 
+  // values are multiplied by 120 for compatibility with the
+  // new high-resolution events
   switch (axis) {
   case WL_POINTER_AXIS_VERTICAL_SCROLL:
-    self->wheel.vertical += discrete;
+    self->wheel.vertical += discrete * 120;
     break;
   case WL_POINTER_AXIS_HORIZONTAL_SCROLL:
-    self->wheel.horizontal += discrete;
+    self->wheel.horizontal += discrete * 120;
     break;
   }
 }
+
+#ifdef WL_POINTER_AXIS_VALUE120_SINCE_VERSION
+static void wayland_pointer_axis120(void *data,
+                      struct wl_pointer *wl_pointer,
+                      enum wl_pointer_axis  axis,
+                      int32_t value120)
+{
+  wayland_seat *self = data;
+
+  switch (axis) {
+  case WL_POINTER_AXIS_VERTICAL_SCROLL:
+    self->wheel.vertical += value120;
+    break;
+  case WL_POINTER_AXIS_HORIZONTAL_SCROLL:
+    self->wheel.horizontal += value120;
+    break;
+  }
+}
+#endif
 
 static const struct wl_pointer_listener wayland_pointer_listener = {
     .enter = wayland_pointer_enter,
@@ -851,6 +861,9 @@ static const struct wl_pointer_listener wayland_pointer_listener = {
     .frame = wayland_pointer_frame,
     .axis_source = wayland_pointer_axis_source,
     .axis_stop = wayland_pointer_axis_stop,
+#ifdef WL_POINTER_AXIS_VALUE120_SINCE_VERSION
+    .axis_value120 = wayland_pointer_axis120,
+#endif
     .axis_discrete = wayland_pointer_axis_discrete,
 };
 
@@ -859,12 +872,7 @@ static void wayland_keyboard_release(wayland_seat *self) {
     return;
   }
 
-  if (wl_keyboard_get_version(self->keyboard) >=
-      WL_KEYBOARD_RELEASE_SINCE_VERSION) {
-    wl_keyboard_release(self->keyboard);
-  } else {
-    wl_keyboard_destroy(self->keyboard);
-  }
+  wl_keyboard_release(self->keyboard);
 
   self->repeat.key = 0;
   if (self->repeat.source != NULL) {
@@ -1068,12 +1076,7 @@ static void wayland_pointer_release(wayland_seat *self) {
   }
 #endif
 
-  if (wl_pointer_get_version(self->pointer) >=
-      WL_POINTER_RELEASE_SINCE_VERSION) {
-    wl_pointer_release(self->pointer);
-  } else {
-    wl_pointer_destroy(self->pointer);
-  }
+  wl_pointer_release(self->pointer);
 
   self->pointer = NULL;
 }
@@ -1082,11 +1085,7 @@ static void wayland_seat_release(wayland_seat *self) {
   wayland_keyboard_release(self);
   wayland_pointer_release(self);
 
-  if (wl_seat_get_version(self->seat) >= WL_SEAT_RELEASE_SINCE_VERSION) {
-    wl_seat_release(self->seat);
-  } else {
-    wl_seat_destroy(self->seat);
-  }
+  wl_seat_release(self->seat);
 
   g_hash_table_remove(wayland->seats, self->seat);
 
@@ -1280,17 +1279,28 @@ static void wayland_registry_handle_global(void *data,
     wayland->shm = wl_registry_bind(registry, name, &wl_shm_interface,
                                     MIN(version, WL_SHM_INTERFACE_VERSION));
   } else if (g_strcmp0(interface, wl_seat_interface.name) == 0) {
+    if (version < WL_SEAT_INTERFACE_MIN_VERSION) {
+      g_error("Minimum version of wayland seat interface is %u, got %u", WL_SEAT_INTERFACE_MIN_VERSION,
+              version);
+      return;
+    }
+    version = MIN(version, WL_SEAT_INTERFACE_MAX_VERSION);
+
     wayland_seat *seat = g_new0(wayland_seat, 1);
     seat->context = wayland;
     seat->global_name = name;
-    seat->seat = wl_registry_bind(registry, name, &wl_seat_interface,
-                                  MIN(version, WL_SEAT_INTERFACE_VERSION));
+    seat->seat = wl_registry_bind(registry, name, &wl_seat_interface, version);
     g_hash_table_insert(wayland->seats, seat->seat, seat);
 
     wl_seat_add_listener(seat->seat, &wayland_seat_listener, seat);
   } else if (g_strcmp0(interface, wl_output_interface.name) == 0) {
-    version = CLAMP(version, WL_OUTPUT_INTERFACE_MIN_VERSION,
-                    WL_OUTPUT_INTERFACE_MAX_VERSION);
+    if (version < WL_OUTPUT_INTERFACE_MIN_VERSION) {
+      g_error("Minimum version of wayland output interface is %u, got %u", WL_OUTPUT_INTERFACE_MIN_VERSION,
+              version);
+      return;
+    }
+    version = MIN(version, WL_OUTPUT_INTERFACE_MAX_VERSION);
+
     wayland_output *output = g_new0(wayland_output, 1);
     output->context = wayland;
     output->global_name = name;
