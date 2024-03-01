@@ -432,7 +432,9 @@ static void wayland_window_mode_destroy(Mode *sw) {
   WaylandWindowModePrivateData *pd =
       (WaylandWindowModePrivateData *)mode_get_private_data(sw);
 
-  g_return_if_fail(pd != NULL);
+  if (pd == NULL) {
+    return;
+  }
 
   wayland_window_private_free(pd);
   mode_set_private_data(sw, NULL);
