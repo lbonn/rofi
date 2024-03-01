@@ -868,6 +868,14 @@ Click the mouse outside the **rofi** window to exit.
 
 Default: *enabled*
 
+`-global-kb`
+`-no-global-kb`
+
+(wayland) Override the compositor's keybindings, so that **rofi** can re-use them.
+
+Default: *disabled*
+
+
 `-xserver-i300-workaround`
 
 Workaround for bug in Xserver. See issue #611 and #1642 on the rofi issue

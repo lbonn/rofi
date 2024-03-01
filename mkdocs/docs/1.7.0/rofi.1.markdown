@@ -768,13 +768,6 @@ Click the mouse outside the **rofi** window to exit.
 
 Default: *enabled*
 
-`-global-kb`
-`-no-global-kb`
-
-(wayland) Override the compositor's keybindings, so that **rofi** can re-use them.
-
-Default: *disabled*
-
 ## PATTERN
 
 To launch commands (for example, when using the ssh launcher), the user can enter the used command-line. The following keys can be used that will be replaced at runtime:
