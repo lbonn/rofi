@@ -1,5 +1,5 @@
 project('rofi', 'c',
-    version: '1.7.5+wayland2-dev',
+    version: '1.7.5+wayland3',
     meson_version: '>=0.59.0',
     license: [ 'MIT' ],
     default_options: [
