@@ -166,7 +166,11 @@ wayland_buffer_pool *display_buffer_pool_new(gint width, gint height) {
   size_t pool_size;
 
   stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
-  size = stride * height;
+  if (stride < 0) {
+    g_warning("cairo stride width calculation failure");
+    return NULL;
+  }
+  size = (size_t)stride * height;
   pool_size = size * wayland->buffer_count;
 
   gchar filename[PATH_MAX];
