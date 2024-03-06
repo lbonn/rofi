@@ -33,6 +33,7 @@ runs:
           libxkbcommon-dev \
           libxkbcommon-x11-dev \
           ninja-build \
+          pandoc \
           python3-pip \
           python3-setuptools \
           python3-wheel \
