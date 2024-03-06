@@ -35,6 +35,10 @@ typedef struct {
 typedef struct _wayland_seat wayland_seat;
 
 typedef struct {
+  void *offer;
+} clipboard_data;
+
+typedef struct {
   GMainLoop *main_loop;
   GWaterWaylandSource *main_loop_source;
   struct wl_display *display;
@@ -77,8 +81,7 @@ typedef struct {
   int32_t scale;
   NkBindingsSeat *bindings_seat;
 
-  char *clipboard_default_data;
-  char *clipboard_primary_data;
+  clipboard_data clipboards[2];
 
   uint32_t layer_width;
   uint32_t layer_height;

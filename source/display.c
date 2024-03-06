@@ -1,8 +1,8 @@
 #include "keyb.h"
 #include <glib.h>
 
-#include "display-internal.h"
 #include "display.h"
+#include "display-internal.h"
 
 #include "view.h"
 
@@ -41,8 +41,8 @@ void display_startup_notification(RofiHelperExecuteContext *context,
 
 guint display_scale(void) { return proxy->scale(); }
 
-char *display_get_clipboard_data(enum clipboard_type type) {
-  return proxy->get_clipboard_data(type);
+void display_get_clipboard_data(enum clipboard_type type, ClipboardCb callback, void* user_data) {
+  proxy->get_clipboard_data(type, callback, user_data);
 }
 
 void display_set_fullscreen_mode(void) { proxy->set_fullscreen_mode(); }

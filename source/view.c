@@ -921,6 +921,18 @@ static void rofi_view_input_changed(void) {
   }
 }
 
+#ifdef ENABLE_WAYLAND
+static void rofi_view_clipboard_callback(char *clipboard_data, G_GNUC_UNUSED void *user_data) {
+  RofiViewState *state = rofi_view_get_active();
+  if (clipboard_data != NULL) {
+    if (state != NULL) {
+      rofi_view_handle_text(state, clipboard_data);
+    }
+    g_free(clipboard_data);
+  }
+}
+#endif
+
 static void rofi_view_trigger_global_action(KeyBindingAction action) {
   RofiViewState *state = rofi_view_get_active();
   switch (action) {
@@ -936,10 +948,7 @@ static void rofi_view_trigger_global_action(KeyBindingAction action) {
 #endif
 #ifdef ENABLE_WAYLAND
     if (config.backend == DISPLAY_WAYLAND) {
-      char *d = display_get_clipboard_data(CLIPBOARD_PRIMARY);
-      if (d != NULL) {
-        rofi_view_handle_text(current_active_menu, d);
-      }
+      display_get_clipboard_data(CLIPBOARD_PRIMARY, rofi_view_clipboard_callback, NULL);
     }
 #endif
     break;
@@ -954,10 +963,7 @@ static void rofi_view_trigger_global_action(KeyBindingAction action) {
 #endif
 #ifdef ENABLE_WAYLAND
     if (config.backend == DISPLAY_WAYLAND) {
-      char *d = display_get_clipboard_data(CLIPBOARD_DEFAULT);
-      if (d != NULL) {
-        rofi_view_handle_text(current_active_menu, d);
-      }
+      display_get_clipboard_data(CLIPBOARD_DEFAULT, rofi_view_clipboard_callback, NULL);
     }
 #endif
     break;

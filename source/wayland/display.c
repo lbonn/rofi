@@ -885,13 +885,12 @@ static void wayland_keyboard_release(wayland_seat *self) {
 
 #define CLIPBOARD_READ_INCREMENT 1024
 
-typedef void (*clipboard_read_callback)(char *data);
-
 struct clipboard_read_info {
   char *buffer;
   size_t size;
   int fd;
-  clipboard_read_callback callback;
+  ClipboardCb callback;
+  void *user_data;
 };
 
 static gboolean clipboard_read_glib_callback(GIOChannel *channel,
@@ -900,8 +899,9 @@ static gboolean clipboard_read_glib_callback(GIOChannel *channel,
   struct clipboard_read_info *info = opaque;
   gsize read;
 
-  switch (g_io_channel_read_chars(channel, info->buffer + info->size,
-                                  CLIPBOARD_READ_INCREMENT, &read, NULL)) {
+  GIOStatus status = g_io_channel_read_chars(channel, info->buffer + info->size,
+                                             CLIPBOARD_READ_INCREMENT, &read, NULL);
+  switch (status) {
   case G_IO_STATUS_AGAIN:
     return TRUE;
 
@@ -921,7 +921,12 @@ static gboolean clipboard_read_glib_callback(GIOChannel *channel,
 
   default:
     info->buffer[info->size] = '\0';
-    info->callback(info->buffer);
+    if (status == G_IO_STATUS_EOF) {
+      info->callback(info->buffer, info->user_data);
+    } else {  // G_IO_STATUS_ERROR
+      g_warning("Could not read data from clipboard");
+      g_free(info->buffer);
+    }
     g_io_channel_shutdown(channel, FALSE, NULL);
     g_io_channel_unref(channel);
     close(info->fd);
@@ -930,7 +935,7 @@ static gboolean clipboard_read_glib_callback(GIOChannel *channel,
   }
 }
 
-static gboolean clipboard_read_data(int fd, clipboard_read_callback callback) {
+static gboolean clipboard_read_data(int fd, ClipboardCb callback, void *user_data) {
   GIOChannel *channel = g_io_channel_unix_new(fd);
 
   struct clipboard_read_info *info = g_malloc(sizeof *info);
@@ -943,6 +948,7 @@ static gboolean clipboard_read_data(int fd, clipboard_read_callback callback) {
   info->fd = fd;
   info->size = 0;
   info->callback = callback;
+  info->user_data = user_data;
   info->buffer = g_malloc(CLIPBOARD_READ_INCREMENT);
 
   if (info->buffer == NULL) {
@@ -980,32 +986,24 @@ static void data_device_handle_data_offer(void *data,
   wl_data_offer_add_listener(offer, &data_offer_listener, NULL);
 }
 
-static void clipboard_default_callback(char *data) {
-  if (wayland->clipboard_default_data != NULL) {
-    g_free(wayland->clipboard_default_data);
+static void clipboard_handle_selection(enum clipboard_type cb_type, void *offer) {
+  clipboard_data *clipboard = &wayland->clipboards[cb_type];
+
+  if (clipboard->offer != NULL) {
+    if (cb_type == CLIPBOARD_DEFAULT) {
+      wl_data_offer_destroy(clipboard->offer);
+    } else {
+      zwp_primary_selection_offer_v1_destroy(clipboard->offer);
+    }
   }
-  wayland->clipboard_default_data = data;
+  clipboard->offer = offer;
+
 }
 
 static void data_device_handle_selection(void *data,
                                          struct wl_data_device *data_device,
                                          struct wl_data_offer *offer) {
-  if (offer == NULL) {
-    // clipboard is empty
-    return;
-  }
-
-  int fds[2];
-  if (pipe(fds) < 0) {
-    return;
-  }
-  wl_data_offer_receive(offer, "text/plain", fds[1]);
-  close(fds[1]);
-
-  wl_display_roundtrip(wayland->display);
-
-  clipboard_read_data(fds[0], clipboard_default_callback);
-  wl_data_offer_destroy(offer);
+  clipboard_handle_selection(CLIPBOARD_DEFAULT, offer);
 }
 
 static const struct wl_data_device_listener data_device_listener = {
@@ -1030,32 +1028,10 @@ static void primary_selection_device_handle_data_offer(
       offer, &primary_selection_offer_listener, NULL);
 }
 
-static void clipboard_primary_callback(char *data) {
-  if (wayland->clipboard_primary_data != NULL) {
-    g_free(wayland->clipboard_primary_data);
-  }
-  wayland->clipboard_primary_data = data;
-}
-
 static void primary_selection_device_handle_selection(
     void *data, struct zwp_primary_selection_device_v1 *data_device,
     struct zwp_primary_selection_offer_v1 *offer) {
-  if (offer == NULL) {
-    // clipboard is empty
-    return;
-  }
-
-  int fds[2];
-  if (pipe(fds) < 0) {
-    return;
-  }
-  zwp_primary_selection_offer_v1_receive(offer, "text/plain", fds[1]);
-  close(fds[1]);
-
-  wl_display_roundtrip(wayland->display);
-
-  clipboard_read_data(fds[0], clipboard_primary_callback);
-  zwp_primary_selection_offer_v1_destroy(offer);
+  clipboard_handle_selection(CLIPBOARD_PRIMARY, offer);
 }
 
 static const struct zwp_primary_selection_device_v1_listener
@@ -1748,15 +1724,26 @@ static const struct _view_proxy *wayland_display_view_proxy(void) {
 
 static guint wayland_display_scale(void) { return wayland->scale; }
 
-static char *wayland_get_clipboard_data(int type) {
-  switch (type) {
-  case CLIPBOARD_DEFAULT:
-    return wayland->clipboard_default_data;
-  case CLIPBOARD_PRIMARY:
-    return wayland->clipboard_primary_data;
+static void wayland_get_clipboard_data(int cb_type, ClipboardCb callback, void *user_data) {
+  clipboard_data *clipboard = &wayland->clipboards[cb_type];
+
+  if (clipboard->offer == NULL) {
+    return;
   }
 
-  return NULL;
+  int fds[2];
+  if (pipe(fds) < 0) {
+    return;
+  }
+
+  if (cb_type == CLIPBOARD_DEFAULT) {
+    wl_data_offer_receive(clipboard->offer, "text/plain", fds[1]);
+  } else {
+    zwp_primary_selection_offer_v1_receive(clipboard->offer, "text/plain", fds[1]);
+  }
+  close(fds[1]);
+
+  clipboard_read_data(fds[0], callback, user_data);
 }
 
 static void wayland_set_fullscreen_mode(void) {

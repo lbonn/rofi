@@ -28,6 +28,7 @@
 #ifndef ROFI_DISPLAY_INTERNAL_H
 #define ROFI_DISPLAY_INTERNAL_H
 
+#include "display.h"
 #include "helper.h"
 #include "nkutils-bindings.h"
 #include <glib.h>
@@ -48,7 +49,7 @@ typedef struct _display_proxy {
 
   void (*set_input_focus)(guint window);
   void (*revert_input_focus)(void);
-  char *(*get_clipboard_data)(int type);
+  void (*get_clipboard_data)(int type, ClipboardCb callback, void *user_data);
   void (*set_fullscreen_mode)(void);
 
   guint (*scale)(void);
