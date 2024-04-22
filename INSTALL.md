@@ -270,7 +270,7 @@ https://pkgs.alpinelinux.org/packages?name=rofi-wayland
 
 ### ArchLinux
 
-https://aur.archlinux.org/packages/rofi-lbonn-wayland-git/
+https://archlinux.org/packages/extra/x86_64/rofi-wayland
 
 ### Fedora
 
