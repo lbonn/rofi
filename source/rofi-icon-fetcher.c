@@ -86,11 +86,17 @@ typedef struct {
   IconFetcherNameEntry *entry;
 } IconFetcherEntry;
 
+// Free method.
+static void rofi_icon_fetch_entry_free(gpointer data);
 /**
  * The icon fetcher internal state.
  */
 IconFetcher *rofi_icon_fetcher_data = NULL;
 
+static void rofi_icon_fetch_thread_pool_entry_remove(gpointer data) {
+  IconFetcherEntry *entry = (IconFetcherEntry *)data;
+  // Mark it in a way it should be re-fetched on next query?
+}
 static void rofi_icon_fetch_entry_free(gpointer data) {
   IconFetcherNameEntry *entry = (IconFetcherNameEntry *)data;
 
@@ -348,6 +354,7 @@ static void rofi_icon_fetcher_worker(thread_state *sdata,
   }
   cairo_surface_t *icon_surf = NULL;
 
+#if 0 // unsure why added in past?
   const char *suf = strrchr(icon_path, '.');
   if (suf == NULL) {
     sentry->query_done = TRUE;
@@ -355,6 +362,7 @@ static void rofi_icon_fetcher_worker(thread_state *sdata,
     rofi_view_reload();
     return;
   }
+#endif
 
   int width = sentry->wsize, height = sentry->hsize;
   if (width > 0)
@@ -365,9 +373,20 @@ static void rofi_icon_fetcher_worker(thread_state *sdata,
   GError *error = NULL;
   GdkPixbuf *pb =
       gdk_pixbuf_new_from_file_at_scale(icon_path, width, height, TRUE, &error);
+
+  /*
+   * The GIF codec throws GDK_PIXBUF_ERROR_INCOMPLETE_ANIMATION if it's closed
+   * without decoding all the frames. Since gdk_pixbuf_new_from_file_at_scale
+   * only decodes the first frame, this specific error needs to be ignored.
+   */
+  if (error != NULL && g_error_matches(error, GDK_PIXBUF_ERROR,
+                                       GDK_PIXBUF_ERROR_INCOMPLETE_ANIMATION)) {
+    g_clear_error(&error);
+  }
+
   if (error != NULL) {
     g_warning("Failed to load image: |%s| %d %d %s (%p)", icon_path,
-              sentry->wsize, sentry->hsize, error->message, (void*)pb);
+              sentry->wsize, sentry->hsize, error->message, (void *)pb);
     g_error_free(error);
     if (pb) {
       g_object_unref(pb);
@@ -420,6 +439,7 @@ uint32_t rofi_icon_fetcher_query_advanced(const char *name, const int wsize,
 
   // Push into fetching queue.
   sentry->state.callback = rofi_icon_fetcher_worker;
+  sentry->state.free = rofi_icon_fetch_thread_pool_entry_remove;
   sentry->state.priority = G_PRIORITY_LOW;
   g_thread_pool_push(tpool, sentry, NULL);
 

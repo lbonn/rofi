@@ -27,6 +27,9 @@ typedef struct {
   /** non-selectable */
   gboolean nonselectable;
 
+  /** permanent */
+  gboolean permanent;
+
   /** urgent */
   gboolean urgent;
   /** active */
