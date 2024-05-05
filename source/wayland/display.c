@@ -347,7 +347,7 @@ static void wayland_keyboard_keymap(void *data, struct wl_keyboard *keyboard,
     return;
   }
 
-  char *str = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+  char *str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (str == MAP_FAILED) {
     close(fd);
     return;
