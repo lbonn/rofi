@@ -109,12 +109,17 @@ struct _wayland_seat {
   struct wl_data_device *data_device;
   struct zwp_primary_selection_device_v1 *primary_selection_device;
 
+  enum wl_pointer_axis_source axis_source;
   widget_button_event button;
   widget_motion_event motion;
   struct {
     gint vertical;
     gint horizontal;
   } wheel;
+  struct {
+    double vertical;
+    double horizontal;
+  } wheel_continuous;
 };
 
 /* Supported interface versions */

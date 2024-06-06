@@ -613,6 +613,12 @@ static void wayland_pointer_send_events(wayland_seat *self) {
     self->button.button = 0;
   }
 
+  if (self->axis_source == WL_POINTER_AXIS_SOURCE_FINGER ||
+      self->axis_source == WL_POINTER_AXIS_SOURCE_CONTINUOUS) {
+    self->wheel.vertical += 20 * self->wheel_continuous.vertical;
+    self->wheel.horizontal += 20 * self->wheel_continuous.horizontal;
+  }
+
   if (abs(self->wheel.vertical) >= 120) {
     gint v120 = self->wheel.vertical;
     nk_bindings_seat_handle_scroll(wayland->bindings_seat, NULL,
@@ -636,6 +642,10 @@ static void wayland_pointer_send_events(wayland_seat *self) {
       self->wheel.horizontal = -((-v120) % 120);
     }
   }
+
+  self->axis_source = 0;
+  self->wheel_continuous.vertical = 0;
+  self->wheel_continuous.horizontal = 0;
 
   rofi_view_maybe_update(state);
 }
@@ -804,7 +814,18 @@ static void wayland_pointer_button(void *data, struct wl_pointer *pointer,
 
 static void wayland_pointer_axis(void *data, struct wl_pointer *pointer,
                                  uint32_t time, enum wl_pointer_axis axis,
-                                 wl_fixed_t value) {}
+                                 wl_fixed_t value) {
+  wayland_seat *self = data;
+
+  switch (axis) {
+  case WL_POINTER_AXIS_VERTICAL_SCROLL:
+    self->wheel_continuous.vertical += wl_fixed_to_double(value);
+    break;
+  case WL_POINTER_AXIS_HORIZONTAL_SCROLL:
+    self->wheel_continuous.horizontal += wl_fixed_to_double(value);
+    break;
+  }
+}
 
 static void wayland_pointer_frame(void *data, struct wl_pointer *pointer) {
   wayland_seat *self = data;
@@ -813,7 +834,11 @@ static void wayland_pointer_frame(void *data, struct wl_pointer *pointer) {
 
 static void
 wayland_pointer_axis_source(void *data, struct wl_pointer *pointer,
-                            enum wl_pointer_axis_source axis_source) {}
+                            enum wl_pointer_axis_source axis_source) {
+
+  wayland_seat *self = data;
+  self->axis_source = axis_source;
+}
 
 static void wayland_pointer_axis_stop(void *data, struct wl_pointer *pointer,
                                       uint32_t time,
