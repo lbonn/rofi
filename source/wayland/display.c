@@ -152,7 +152,8 @@ static void wayland_buffer_release(void *data, struct wl_buffer *buffer) {
 }
 
 static const struct wl_buffer_listener wayland_buffer_listener = {
-    wayland_buffer_release};
+    wayland_buffer_release
+};
 
 wayland_buffer_pool *display_buffer_pool_new(gint width, gint height) {
   struct wl_shm_pool *wl_pool;
@@ -1015,6 +1016,22 @@ static void data_device_handle_data_offer(void *data,
   wl_data_offer_add_listener(offer, &data_offer_listener, NULL);
 }
 
+static void data_device_handle_enter(void *data, struct wl_data_device *wl_data_device,
+                                     uint32_t serial, struct wl_surface *surface,
+                                     wl_fixed_t x, wl_fixed_t y,
+                                     struct wl_data_offer *id) {
+}
+
+static void data_device_handle_leave(void *data, struct wl_data_device *wl_data_device) {
+}
+
+static void data_device_handle_motion(void *data, struct wl_data_device *wl_data_device,
+                                      uint32_t time, wl_fixed_t x, wl_fixed_t y) {
+}
+
+static void data_device_handle_drop(void *data, struct wl_data_device *wl_data_device) {
+}
+
 static void clipboard_handle_selection(enum clipboard_type cb_type, void *offer) {
   clipboard_data *clipboard = &wayland->clipboards[cb_type];
 
@@ -1037,6 +1054,10 @@ static void data_device_handle_selection(void *data,
 
 static const struct wl_data_device_listener data_device_listener = {
     .data_offer = data_device_handle_data_offer,
+    .enter = data_device_handle_enter,
+    .leave = data_device_handle_leave,
+    .motion = data_device_handle_motion,
+    .drop = data_device_handle_drop,
     .selection = data_device_handle_selection,
 };
 
