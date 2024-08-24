@@ -593,7 +593,6 @@ static void wayland_touch_motion(void *data, struct wl_touch *wl_touch,
   int cur_pos = y_offset_to_line_offset(y - self->touches[id].start_y);
 
   if (cur_pos != last_pos) {
-    rofi_view_handle_mouse_motion(state, x, y, FALSE);
     nk_bindings_seat_handle_scroll(wayland->bindings_seat, NULL,
                                    NK_BINDINGS_SCROLL_AXIS_VERTICAL,
                                    cur_pos - last_pos);
