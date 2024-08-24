@@ -551,10 +551,8 @@ static void wayland_touch_up(void *data, struct wl_touch *wl_touch,
   if (id >= MAX_TOUCHPOINTS) {
     return;
   }
-  gboolean is_move =
-    time - self->touches[id].start_time > 500
-    || self->touches[id].start_time != self->touches[id].move_time;
-  if (is_move) {
+  gboolean has_moved = self->touches[id].start_time != self->touches[id].move_time;
+  if (has_moved) {
     return;
   }
   RofiViewState *state = rofi_view_get_active();
@@ -562,10 +560,12 @@ static void wayland_touch_up(void *data, struct wl_touch *wl_touch,
   if (state == NULL) {
     return;
   }
-  //rofi_view_handle_mouse_motion(state, self->touches[id].x, self->touches[id].start_y,
-  //                              FALSE);
+  int key = KEY_ENTER;
+  if (time - self->touches[id].start_time > 200) {
+    key = KEY_ESC;
+  }
   nk_bindings_seat_handle_key(wayland->bindings_seat, NULL,
-                                 KEY_ENTER + 8,
+                                 key + 8,
                                  NK_BINDINGS_KEY_STATE_PRESS);
   rofi_view_maybe_update(state);
 }
