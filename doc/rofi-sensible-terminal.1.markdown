@@ -36,6 +36,7 @@ It tries to start one of the following (in that order):
 * alacritty
 * kitty
 * wezterm
+* foot
 
 
 ## SEE ALSO
