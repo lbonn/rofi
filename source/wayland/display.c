@@ -531,6 +531,100 @@ static const struct wl_keyboard_listener wayland_keyboard_listener = {
     .repeat_info = wayland_keyboard_repeat_info,
 };
 
+static void wayland_touch_down(void *data, struct wl_touch *wl_touch,
+    uint32_t serial, uint32_t time, struct wl_surface *wl_surface,
+    int32_t id, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+  wayland_seat *self = data;
+  if (id >= MAX_TOUCHPOINTS) {
+    return;
+  }
+  self->touches[id].x = wl_fixed_to_int(surface_x);
+  self->touches[id].start_y = self->touches[id].move_y = wl_fixed_to_int(surface_y);
+  self->touches[id].start_time = self->touches[id].move_time = time;
+  RofiViewState *state = rofi_view_get_active();
+
+  if (state == NULL) {
+    return;
+  }
+  rofi_view_handle_mouse_motion(state, self->touches[id].x, self->touches[id].start_y,
+                                FALSE);
+}
+
+static void wayland_touch_up(void *data, struct wl_touch *wl_touch,
+    uint32_t serial, uint32_t time, int32_t id) {
+  wayland_seat *self = data;
+  if (id >= MAX_TOUCHPOINTS) {
+    return;
+  }
+  gboolean has_moved = self->touches[id].start_time != self->touches[id].move_time;
+  if (has_moved) {
+    return;
+  }
+  RofiViewState *state = rofi_view_get_active();
+
+  if (state == NULL) {
+    return;
+  }
+  int key = KEY_ENTER;
+  if (time - self->touches[id].start_time > 200) {
+    key = KEY_ESC;
+  }
+  nk_bindings_seat_handle_key(wayland->bindings_seat, NULL,
+                                 key + 8,
+                                 NK_BINDINGS_KEY_STATE_PRESS);
+  rofi_view_maybe_update(state);
+}
+
+static int32_t y_offset_to_line_offset(int32_t y_offset) {
+  static const int32_t line_height = 20;
+  return -(y_offset / line_height);
+}
+
+static void wayland_touch_motion(void *data, struct wl_touch *wl_touch,
+    uint32_t time, int32_t id, wl_fixed_t surface_x, wl_fixed_t surface_y) {
+  wayland_seat *self = data;
+  if (id >= MAX_TOUCHPOINTS) {
+    return;
+  }
+  RofiViewState *state = rofi_view_get_active();
+
+  if (state == NULL) {
+    return;
+  }
+  int32_t x = wl_fixed_to_int(surface_x);
+  int32_t y = wl_fixed_to_int(surface_y);
+
+  int last_pos = y_offset_to_line_offset(self->touches[id].move_y - self->touches[id].start_y);
+  int cur_pos = y_offset_to_line_offset(y - self->touches[id].start_y);
+
+  if (cur_pos != last_pos) {
+    nk_bindings_seat_handle_scroll(wayland->bindings_seat, NULL,
+                                   NK_BINDINGS_SCROLL_AXIS_VERTICAL,
+                                   cur_pos - last_pos);
+    self->touches[id].x = x;
+    self->touches[id].move_y = y;
+    self->touches[id].move_time = time;
+    rofi_view_maybe_update(state);
+  }
+}
+
+static void wayland_touch_frame(void *data, struct wl_touch *wl_touch) { }
+static void wayland_touch_cancel(void *data, struct wl_touch *wl_touch) { }
+static void wayland_touch_shape(void *data, struct wl_touch *wl_touch,
+    int32_t id, wl_fixed_t major, wl_fixed_t minor) { }
+static void wayland_touch_orientation(void *data, struct wl_touch *wl_touch,
+    int32_t id, wl_fixed_t orientation) { }
+
+static const struct wl_touch_listener wayland_touch_listener = {
+  .down = wayland_touch_down,
+  .up = wayland_touch_up,
+  .motion = wayland_touch_motion,
+  .frame = wayland_touch_frame,
+  .cancel = wayland_touch_cancel,
+  .shape = wayland_touch_shape,
+  .orientation = wayland_touch_orientation,
+};
+
 static gboolean wayland_cursor_reload_theme(guint scale);
 
 static void wayland_cursor_set_image(int i) {
@@ -1107,9 +1201,20 @@ static void wayland_pointer_release(wayland_seat *self) {
   self->pointer = NULL;
 }
 
+static void wayland_touch_release(wayland_seat *self) {
+  if (self->touch == NULL) {
+    return;
+  }
+
+  wl_touch_release(self->touch);
+
+  self->touch = NULL;
+}
+
 static void wayland_seat_release(wayland_seat *self) {
   wayland_keyboard_release(self);
   wayland_pointer_release(self);
+  wayland_touch_release(self);
 
   wl_seat_release(self->seat);
 
@@ -1137,6 +1242,15 @@ static void wayland_seat_capabilities(void *data, struct wl_seat *seat,
   } else if ((!(capabilities & WL_SEAT_CAPABILITY_POINTER)) &&
              (self->pointer != NULL)) {
     wayland_pointer_release(self);
+  }
+
+  if ((capabilities & WL_SEAT_CAPABILITY_TOUCH) &&
+      (self->touch == NULL)) {
+    self->touch = wl_seat_get_touch(self->seat);
+    wl_touch_add_listener(self->touch, &wayland_touch_listener, self);
+  } else if ((!(capabilities & WL_SEAT_CAPABILITY_TOUCH)) &&
+             (self->touch != NULL)) {
+    wayland_touch_release(self);
   }
 
   if (wayland->data_device_manager != NULL) {

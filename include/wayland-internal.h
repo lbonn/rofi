@@ -87,6 +87,8 @@ typedef struct {
   uint32_t layer_height;
 } wayland_stuff;
 
+#define MAX_TOUCHPOINTS 10
+
 struct _wayland_seat {
   wayland_stuff *context;
   uint32_t global_name;
@@ -102,6 +104,11 @@ struct _wayland_seat {
   uint32_t pointer_serial;
   struct wl_keyboard *keyboard;
   struct wl_pointer *pointer;
+  struct wl_touch *touch;
+  struct {
+    int32_t x, start_y, move_y;
+    uint32_t start_time, move_time;
+  } touches[MAX_TOUCHPOINTS];
 
 #ifdef HAVE_WAYLAND_CURSOR_SHAPE
   struct wp_cursor_shape_device_v1 *cursor_shape_device;
