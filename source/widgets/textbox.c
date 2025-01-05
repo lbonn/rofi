@@ -337,18 +337,7 @@ static void __textbox_update_pango_text(textbox *tb) {
   tb->show_placeholder = FALSE;
   if ((tb->flags & TB_PASSWORD) == TB_PASSWORD) {
     size_t l = g_utf8_strlen(tb->text, -1);
-    
-    // const char *dot = "●";
-    // size_t dot_len = strlen(dot);
-    // size_t total_len = l * dot_len;
-    // unsigned char string[total_len + 1];
-    // unsigned char *ptr = string;
-    // for (size_t i = 0; i < l; i++) {
-    //   memcpy(ptr, dot, dot_len);
-    //   ptr += dot_len;
-    // }
-
-    // DEFAULT SET "●"
+    // Default set “●” (U+25CF)
     unsigned char string[l * 3 + 1];  // "●" is 3 bytes in UTF-8
     unsigned char *ptr = string;
     while (l--) { // UTF-8 bytes for Unicode Character “●” (U+25CF)
