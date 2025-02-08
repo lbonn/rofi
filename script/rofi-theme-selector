@@ -199,12 +199,24 @@ set_theme()
        touch "${get_link}"
     fi
 
-    # Replace existing @theme line with the new selected theme path, or add it if it doesn't exist
-    if grep -q '^\s*@theme' "${get_link}"; then
-        ${SED} -i "s|^\s*@theme.*|@theme \"${1}\"|" "${get_link}"
+    # If no @theme is in the file, add it
+    if ! grep -q '^\s*@theme' "${get_link}"; then
+        echo -e "\n\n@theme \"${1}\"" >> "${get_link}"
     else
-        echo -e "\n@theme \"${1}\"" >> "${get_link}"
+        ${SED} -i "s/^\(\s*@theme.*\)/\/\/\1/" "${get_link}"
+        echo -e "@theme \"${1}\"" >> "${get_link}"
     fi
+	# Ensure no more than # of lines with //@theme lines
+	max_line="9"
+	total_lines=$(grep -c '^\s*//@theme' "${get_link}")
+
+	if [ "$total_lines" -gt $max_line ]; then
+    	excess=$(($total_lines - $max_line))
+    	# Remove the oldest or the very top //@theme
+    	for i in $(seq 1 $excess); do
+        ${SED} -i '0,/^\s*\/\/@theme/ { /^\s*\/\/@theme/ {d; q; }}' "${get_link}"
+    	done
+	fi
 }
 
 ############################################################################################################
