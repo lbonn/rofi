@@ -347,6 +347,31 @@ static void print_main_application_options(int is_term) {
                  "Print a list of current keybindings and exit.", NULL,
                  is_term);
 }
+
+static void print_backend_info() {
+  int is_term = isatty(fileno(stdout));
+  printf("Display backends:\n");
+#ifdef ENABLE_XCB
+  printf("\t• xcb");
+  if (config.backend == DISPLAY_XCB) {
+    printf(": %sselected%s\n", is_term ? color_bold : "",
+           is_term ? color_reset : "");
+  } else {
+    printf("\n");
+  }
+#endif
+#ifdef ENABLE_WAYLAND
+  printf("\t• wayland");
+  if (config.backend == DISPLAY_WAYLAND) {
+    printf(": %sselected%s\n", is_term ? color_bold : "",
+           is_term ? color_reset : "");
+  } else {
+    printf("\n");
+  }
+#endif
+  printf("\n");
+}
+
 static void help(G_GNUC_UNUSED int argc, char **argv) {
   int is_term = isatty(fileno(stdout));
   printf("%s usage:\n", argv[0]);
@@ -358,6 +383,7 @@ static void help(G_GNUC_UNUSED int argc, char **argv) {
   printf("Global options:\n");
   print_options();
   printf("\n");
+  print_backend_info();
 #ifdef ENABLE_XCB
   if (config.backend == DISPLAY_XCB) {
     printf("Detected Window manager:\n");
@@ -370,7 +396,6 @@ static void help(G_GNUC_UNUSED int argc, char **argv) {
     }
     printf("\n");
   }
-  printf("\n");
 #endif
   display_dump_monitor_layout();
   printf("\n");
@@ -1026,7 +1051,7 @@ int main(int argc, char *argv[]) {
 #ifdef ENABLE_WAYLAND
 #ifdef ENABLE_XCB
   const gchar *wl_display = g_getenv("WAYLAND_DISPLAY");
-  if (find_arg("-x11") < 0 && wl_display != NULL && strlen(wl_display) > 0) {
+  if (find_arg("-x11") < 0 && find_arg("-xcb") < 0 && wl_display != NULL && strlen(wl_display) > 0) {
     proxy = wayland_proxy;
     config.backend = DISPLAY_WAYLAND;
   }
