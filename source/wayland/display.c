@@ -39,6 +39,7 @@
 #include <cairo.h>
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <linux/input.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon-compose.h>
